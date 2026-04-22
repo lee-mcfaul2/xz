@@ -140,6 +140,7 @@ jobs:
           mkdir build1
           cd build1
           ../configure --quiet
+          mkdir -p ../artifacts
           VER=${{ steps.meta.outputs.version }}
           # Split `make distdir` from `make dist-xz` so we can snapshot
           # the populated staging directory as the canonical manifest
@@ -170,6 +171,7 @@ jobs:
           mkdir build2
           cd build2
           ../configure --quiet
+          mkdir -p ../artifacts
           VER=${{ steps.meta.outputs.version }}
           make -s distdir
           ( cd "xz-${VER}" && find . -mindepth 1 | sed 's,^\./,,' ) \
