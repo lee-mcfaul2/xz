@@ -85,13 +85,23 @@
 #     correctness; a manifest match against the build system's own
 #     declaration is.
 #
-# Provenance:
-#   - A SLSA v1 build provenance attestation is produced for each tarball
-#     via actions/attest-build-provenance. Signing is keyless: the workflow's
-#     OIDC identity issues a short-lived Fulcio certificate, the attestation
-#     is logged to the Rekor transparency log, and the resulting bundle is
-#     published to GitHub's attestations API. No long-lived signing key
-#     exists, so there is nothing for a compromised action to steal.
+# Provenance and signing:
+#   - A SLSA v1 build provenance attestation is produced for each
+#     tarball via actions/attest-build-provenance. Signing is keyless:
+#     the workflow's OIDC identity issues a short-lived Fulcio
+#     certificate, the attestation is logged to the Rekor transparency
+#     log, and the resulting bundle is published to GitHub's
+#     attestations API.
+#   - A raw-artifact signature is also produced for each tarball via
+#     `cosign sign-blob`, packaged as a .sigstore bundle file that
+#     ships as a release asset. This uses the same sigstore
+#     infrastructure (Fulcio + Rekor) with the same keyless OIDC
+#     identity, but gives consumers a vendor-neutral verification
+#     path via `cosign verify-blob` that does not depend on GitHub's
+#     attestation API. Same underlying trust; two complementary
+#     delivery formats.
+#   - No long-lived signing key exists, so there is nothing for a
+#     compromised action to steal for future replay.
 
 name: Release
 
@@ -134,6 +144,12 @@ jobs:
     # `docker run ubuntu@sha256:<digest>` to reproduce the release bytes.
     container:
       image: ubuntu@sha256:c4a8d5503dfb2a3eb8ab5f807da5bc69a85730fb49b5cfca2330194ebcc41c7b
+    # In a container: job, GitHub's default shell is `sh` (which on
+    # Ubuntu is dash and does NOT support `set -o pipefail`). Force
+    # bash so our scripts' pipefail and other bashisms work.
+    defaults:
+      run:
+        shell: bash
     timeout-minutes: 45
     permissions:
       # Required to create the GitHub Release. No write access to code.
@@ -196,6 +212,18 @@ jobs:
           # workspace as a git "safe" directory, but only for the
           # runner user. Re-register for root (our container user).
           git config --global --add safe.directory "${GITHUB_WORKSPACE}"
+          # Install cosign (sigstore CLI) from its official GitHub release
+          # with SHA256 verification. Not in Ubuntu apt, so we pull the
+          # binary directly. This pins by exact bytes, so the signing tool
+          # itself is part of the reproducible build surface.
+          COSIGN_VERSION=v3.0.6
+          COSIGN_SHA256=c956e5dfcac53d52bcf058360d579472f0c1d2d9b69f55209e256fe7783f4c74
+          curl -fsSL \
+            "https://github.com/sigstore/cosign/releases/download/${COSIGN_VERSION}/cosign-linux-amd64" \
+            -o /usr/local/bin/cosign
+          echo "${COSIGN_SHA256}  /usr/local/bin/cosign" | sha256sum -c -
+          chmod +x /usr/local/bin/cosign
+          cosign version --json | head -3
 
       - name: Derive version and SOURCE_DATE_EPOCH
         id: meta
@@ -400,6 +428,28 @@ jobs:
             release/xz-${{ steps.meta.outputs.version }}.tar.gz
             release/xz-${{ steps.meta.outputs.version }}.tar.xz
 
+      # Complementary to the SLSA attestation: a raw-artifact signature
+      # produced by cosign sign-blob, packaged as a .sigstore bundle
+      # (signature + cert + Rekor entry in one file). This gives
+      # consumers a second, simpler verification path via
+      # `cosign verify-blob`, independent of GitHub's attestation API
+      # and usable by anyone with the cosign CLI. Same sigstore
+      # infrastructure underneath — Fulcio for the cert, Rekor for
+      # transparency, ephemeral OIDC-bound private key.
+      - name: Sign release artifacts with cosign (sigstore)
+        env:
+          COSIGN_YES: 'true'
+        run: |
+          set -euo pipefail
+          VER=${{ steps.meta.outputs.version }}
+          for f in "release/xz-${VER}.tar.gz" "release/xz-${VER}.tar.xz"; do
+            cosign sign-blob \
+              --bundle "${f}.sigstore" \
+              --new-bundle-format \
+              "${f}"
+          done
+          ls -la release/
+
       - name: Extract release notes from NEWS
         run: |
           set -eu
@@ -434,17 +484,39 @@ jobs:
             cat release/SHA256SUMS
             echo '```'
             echo ""
-            echo "## Verifying the attestation"
+            echo "## Verifying the signatures"
             echo ""
-            echo "Each tarball has a SLSA v1 build provenance attestation, signed keylessly"
-            echo "via GitHub's OIDC identity through sigstore (Fulcio certificate + Rekor"
-            echo "transparency log). No long-lived signing key was used."
+            echo "Each tarball has **two** sigstore-backed signatures, produced keylessly"
+            echo "via this workflow's OIDC identity. No long-lived signing key exists."
+            echo ""
+            echo "### Option A — SLSA provenance (via \`gh\`)"
+            echo ""
+            echo "A SLSA v1 build provenance attestation binds the tarball's SHA-256 to"
+            echo "this specific workflow file at this specific git commit. The attestation"
+            echo "bundle is published to GitHub's attestations API:"
             echo ""
             echo '```'
             echo "gh attestation verify xz-${{ steps.meta.outputs.version }}.tar.xz \\"
             echo "    --repo ${{ github.repository }} \\"
             echo "    --signer-workflow ${{ github.repository }}/.github/workflows/release.yml"
             echo '```'
+            echo ""
+            echo "### Option B — detached signature (via \`cosign\`)"
+            echo ""
+            echo "A raw-artifact signature is published as a \`.sigstore\` bundle file"
+            echo "alongside each tarball. Verify with the vendor-neutral cosign CLI:"
+            echo ""
+            echo '```'
+            echo "cosign verify-blob \\"
+            echo "    --bundle xz-${{ steps.meta.outputs.version }}.tar.xz.sigstore \\"
+            echo "    --new-bundle-format \\"
+            echo "    --certificate-identity 'https://github.com/${{ github.repository }}/.github/workflows/release.yml@refs/tags/${GITHUB_REF_NAME}' \\"
+            echo "    --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \\"
+            echo "    xz-${{ steps.meta.outputs.version }}.tar.xz"
+            echo '```'
+            echo ""
+            echo "Both options ultimately check the same sigstore trust chain (Fulcio"
+            echo "certificate + Rekor transparency log entry)."
             echo ""
             echo "## Reproducing the tarball from scratch"
             echo ""
@@ -480,4 +552,6 @@ jobs:
             ${PRERELEASE} \
             "release/xz-${VERSION}.tar.gz" \
             "release/xz-${VERSION}.tar.xz" \
+            "release/xz-${VERSION}.tar.gz.sigstore" \
+            "release/xz-${VERSION}.tar.xz.sigstore" \
             release/SHA256SUMS
