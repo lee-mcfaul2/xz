@@ -14,16 +14,22 @@
 #     tool-embedded timestamps (configure script, tar mtime, gzip header) are
 #     functions of the git content rather than wall-clock time
 #   - TAR_OPTIONS normalizes ownership/permissions and sorts entries by name
-#   - make dist-gzip is NOT used; modern gzip ignores the GZIP env var
-#     that automake's dist-gzip recipe relies on to pass --no-name,
-#     which leaves a current-time timestamp in the gzip header and
-#     breaks reproducibility. Instead, we only call make dist-xz (whose
-#     output is deterministic by default because xz does not embed
-#     timestamps) and then recompress the .tar.xz to .tar.gz ourselves
-#     with `gzip --no-name --best` on the command line, where the flags
-#     are actually honored. The .tar.gz is therefore produced from the
-#     same tar bytes as the .tar.xz, which is also a cleaner guarantee
-#     than running two independent make-dist recipes.
+#   - make dist-gzip's own .tar.gz output is discarded. Modern gzip
+#     ignores the GZIP env var that automake's dist-gzip recipe relies
+#     on to pass --no-name, so its gzip header carries a current-time
+#     timestamp and cannot be made reproducible. We produce the shipped
+#     .tar.gz ourselves by decompressing the deterministic .tar.xz and
+#     piping through `gzip --no-name --best`, where command-line flags
+#     are honored.
+#   - We still invoke both dist-gzip and dist-xz on the make line rather
+#     than only dist-xz. Empirically, running only dist-xz caused the
+#     .tar.xz content itself to diverge between the two verification
+#     passes, while running both targets together did not. The likely
+#     cause is a first-vs-second-invocation side effect of the xz
+#     dist-hook (git log, man page conversion, or license-check) when
+#     srcdir is in a "cold" state. Keeping both targets on the make
+#     line preserves the deterministic behavior and is effectively
+#     free — we already throw the dist-gzip output away.
 #   - LC_COLLATE=C makes any sort/glob order locale-independent
 #   - The tarball is built twice and hashes are compared; the job fails if
 #     the two builds disagree, so the reproducibility claim is re-verified
@@ -122,12 +128,13 @@ jobs:
           mkdir build1
           cd build1
           ../configure --quiet
-          # Only produce .tar.xz via automake; xz does not embed wall-clock
-          # state so this target is deterministic. We then recompress to
-          # .tar.gz ourselves because automake's dist-gzip target cannot be
-          # made reproducible on modern gzip (see header comment).
-          make -s dist-xz
+          # Run both dist targets; dist-gzip's .tar.gz is discarded and
+          # replaced below. See the header comment for why both are run
+          # rather than just dist-xz.
+          make -s dist-gzip dist-xz
           VER=${{ steps.meta.outputs.version }}
+          # Overwrite the non-reproducible dist-gzip output with a .tar.gz
+          # produced directly from the deterministic .tar.xz.
           xz -d --stdout "xz-${VER}.tar.xz" \
               | gzip --no-name --best > "xz-${VER}.tar.gz"
           mkdir -p ../artifacts/pass1
@@ -146,7 +153,7 @@ jobs:
           mkdir build2
           cd build2
           ../configure --quiet
-          make -s dist-xz
+          make -s dist-gzip dist-xz
           VER=${{ steps.meta.outputs.version }}
           xz -d --stdout "xz-${VER}.tar.xz" \
               | gzip --no-name --best > "xz-${VER}.tar.gz"
@@ -166,6 +173,40 @@ jobs:
           diff -q pass1/xz-${{ steps.meta.outputs.version }}.tar.xz \
                   pass2/xz-${{ steps.meta.outputs.version }}.tar.xz
           echo "Reproducibility verified: both independent builds match."
+
+      # Diagnostic step — runs only when the verify step above has failed.
+      # Extracts both tarballs and reports precisely which files differ
+      # and in what way (content, mtime, permissions, ordering). Turns a
+      # "the hashes don't match" failure into "these specific files are
+      # the source of the non-determinism" for faster root-causing.
+      - name: Diagnose tarball differences
+        if: ${{ failure() }}
+        run: |
+          set -u
+          VER=${{ steps.meta.outputs.version }}
+          mkdir -p diag
+          echo "=== sha256 of shipped .tar.xz ==="
+          sha256sum artifacts/pass1/xz-${VER}.tar.xz \
+                    artifacts/pass2/xz-${VER}.tar.xz
+          echo
+          echo "=== sha256 of inner .tar (after xz decompression) ==="
+          xz -d --stdout artifacts/pass1/xz-${VER}.tar.xz > diag/pass1.tar
+          xz -d --stdout artifacts/pass2/xz-${VER}.tar.xz > diag/pass2.tar
+          sha256sum diag/pass1.tar diag/pass2.tar
+          echo
+          echo "=== First differing byte in inner .tar ==="
+          cmp diag/pass1.tar diag/pass2.tar || true
+          echo
+          echo "=== tar listing diff (order, size, mtime, perms, owner) ==="
+          tar tvf diag/pass1.tar > diag/pass1.listing || true
+          tar tvf diag/pass2.tar > diag/pass2.listing || true
+          diff -u diag/pass1.listing diag/pass2.listing | head -200 || true
+          echo
+          echo "=== Recursive content diff of extracted trees ==="
+          mkdir -p diag/tree1 diag/tree2
+          tar -xf diag/pass1.tar -C diag/tree1 || true
+          tar -xf diag/pass2.tar -C diag/tree2 || true
+          diff -r diag/tree1 diag/tree2 | head -200 || true
 
       - name: Produce release artifacts + checksums
         id: artifacts
