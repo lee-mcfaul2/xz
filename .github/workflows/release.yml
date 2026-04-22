@@ -14,26 +14,32 @@
 #     tool-embedded timestamps (configure script, tar mtime, gzip header) are
 #     functions of the git content rather than wall-clock time
 #   - TAR_OPTIONS normalizes ownership/permissions and sorts entries by name
-#   - make dist-gzip's own .tar.gz output is discarded. Modern gzip
-#     ignores the GZIP env var that automake's dist-gzip recipe relies
-#     on to pass --no-name, so its gzip header carries a current-time
-#     timestamp and cannot be made reproducible. We produce the shipped
-#     .tar.gz ourselves by decompressing the deterministic .tar.xz and
-#     piping through `gzip --no-name --best`, where command-line flags
-#     are honored.
-#   - We still invoke both dist-gzip and dist-xz on the make line rather
-#     than only dist-xz. Empirically, running only dist-xz caused the
-#     .tar.xz content itself to diverge between the two verification
-#     passes, while running both targets together did not. The likely
-#     cause is a first-vs-second-invocation side effect of the xz
-#     dist-hook (git log, man page conversion, or license-check) when
-#     srcdir is in a "cold" state. Keeping both targets on the make
-#     line preserves the deterministic behavior and is effectively
-#     free — we already throw the dist-gzip output away.
+#   - TAR_OPTIONS also sets `--clamp-mtime --mtime=@$SOURCE_DATE_EPOCH`,
+#     which is the actual principled fix for the real non-determinism in
+#     this build: the distdir staging directory's own mtime is set to
+#     mkdir-time (wall-clock), and autopoint touches some files during
+#     autogen.sh. Clamping any mtime later than the tag commit down to
+#     the tag commit normalizes these while preserving older file mtimes
+#     verbatim. This is the reproducible-builds.org recommended pattern.
+#   - Only `make dist-xz` is invoked. dist-gzip's output cannot be made
+#     reproducible on modern gzip (which ignores the GZIP env var that
+#     automake's recipe relies on to pass --no-name), so we never ask
+#     for it. The shipped .tar.gz is produced by decompressing the
+#     deterministic .tar.xz and piping through `gzip --no-name --best`
+#     directly, where command-line flags are actually honored.
 #   - LC_COLLATE=C makes any sort/glob order locale-independent
 #   - The tarball is built twice and hashes are compared; the job fails if
 #     the two builds disagree, so the reproducibility claim is re-verified
 #     on every release rather than asserted
+#   - A post-build sanity check asserts the produced .tar.xz contains the
+#     expected number of entries and specific required files. Earlier
+#     iterations of this workflow published 108-byte *empty* tarballs:
+#     `make -s dist-gzip dist-xz` had the side effect that dist-gzip ran
+#     first, removed distdir, and dist-xz's `tar | xz > file` pipeline
+#     then silently succeeded on an empty pipe because the pipeline's
+#     exit code is xz's, not tar's. The verify step happily matched two
+#     empty tarballs to each other, and the attestation signed nothing.
+#     The sanity check is a liar-detector: exit 0 is not correctness.
 #
 # Provenance:
 #   - A SLSA v1 build provenance attestation is produced for each tarball
@@ -118,23 +124,23 @@ jobs:
 
       - name: Build tarballs (first pass)
         env:
-          # TAR_OPTIONS matches what Makefile.am's `mydist` target sets, applied
-          # to the dist-xz target so tar entries are sorted by name with
-          # normalized ownership and permissions.
-          TAR_OPTIONS: '--owner=0 --group=0 --numeric-owner --mode=u+rw,go+r-w --sort=name'
+          # --clamp-mtime + --mtime=@SDE clamps any mtime later than the
+          # tag commit down to the tag commit (normalizing distdir mkdir
+          # time and autopoint-touched files) while preserving older file
+          # mtimes verbatim. This is the real fix for the genuine
+          # reproducibility bug; see header comment.
+          TAR_OPTIONS: '--owner=0 --group=0 --numeric-owner --mode=u+rw,go+r-w --sort=name --clamp-mtime --mtime=@${{ steps.meta.outputs.sde }}'
           LC_COLLATE: 'C'
         run: |
-          set -eu
+          set -euo pipefail
           mkdir build1
           cd build1
           ../configure --quiet
-          # Run both dist targets; dist-gzip's .tar.gz is discarded and
-          # replaced below. See the header comment for why both are run
-          # rather than just dist-xz.
-          make -s dist-gzip dist-xz
+          make -s dist-xz
           VER=${{ steps.meta.outputs.version }}
-          # Overwrite the non-reproducible dist-gzip output with a .tar.gz
-          # produced directly from the deterministic .tar.xz.
+          # Produce .tar.gz from the deterministic .tar.xz, bypassing
+          # automake's dist-gzip (which cannot be made reproducible on
+          # modern gzip). Command-line flags on gzip ARE honored.
           xz -d --stdout "xz-${VER}.tar.xz" \
               | gzip --no-name --best > "xz-${VER}.tar.gz"
           mkdir -p ../artifacts/pass1
@@ -143,23 +149,55 @@ jobs:
 
       - name: Build tarballs (second pass, independent)
         env:
-          TAR_OPTIONS: '--owner=0 --group=0 --numeric-owner --mode=u+rw,go+r-w --sort=name'
+          TAR_OPTIONS: '--owner=0 --group=0 --numeric-owner --mode=u+rw,go+r-w --sort=name --clamp-mtime --mtime=@${{ steps.meta.outputs.sde }}'
           LC_COLLATE: 'C'
         run: |
-          set -eu
-          # Fully independent build tree. If anything non-deterministic slips
-          # in (current time, PID, locale-dependent sort, etc.) the tarballs
-          # produced here will differ from pass 1.
+          set -euo pipefail
           mkdir build2
           cd build2
           ../configure --quiet
-          make -s dist-gzip dist-xz
+          make -s dist-xz
           VER=${{ steps.meta.outputs.version }}
           xz -d --stdout "xz-${VER}.tar.xz" \
               | gzip --no-name --best > "xz-${VER}.tar.gz"
           mkdir -p ../artifacts/pass2
           cp "xz-${VER}.tar.gz" ../artifacts/pass2/
           cp "xz-${VER}.tar.xz" ../artifacts/pass2/
+
+      # Liar-detector: exit 0 from the build steps does NOT mean the
+      # tarball is correct. Earlier iterations of this workflow passed
+      # verification and published 108-byte empty tarballs because a
+      # silent failure inside make's own pipeline survived set -eu.
+      # Assert the tarballs contain real content before we let them
+      # anywhere near the attestation or release steps.
+      - name: Sanity check tarballs are non-empty
+        run: |
+          set -euo pipefail
+          VER=${{ steps.meta.outputs.version }}
+          MIN_SIZE=524288          # 512 KB; real xz-5.8.3.tar.xz is ~2.6 MB
+          MIN_ENTRIES=500          # real tarball has 700+ entries
+          REQUIRED=("xz-${VER}/configure" "xz-${VER}/Makefile.in" "xz-${VER}/src/xz/xz.c")
+          for pass in pass1 pass2; do
+            TB="artifacts/${pass}/xz-${VER}.tar.xz"
+            SIZE=$(wc -c < "$TB")
+            if [ "$SIZE" -lt "$MIN_SIZE" ]; then
+              echo "FAIL: ${pass} tarball is suspiciously small: ${SIZE} bytes (< ${MIN_SIZE})"
+              exit 1
+            fi
+            ENTRIES=$(tar -tJf "$TB" | wc -l)
+            if [ "$ENTRIES" -lt "$MIN_ENTRIES" ]; then
+              echo "FAIL: ${pass} tarball has too few entries: ${ENTRIES} (< ${MIN_ENTRIES})"
+              exit 1
+            fi
+            LIST=$(tar -tJf "$TB")
+            for f in "${REQUIRED[@]}"; do
+              if ! printf '%s\n' "$LIST" | grep -qx "$f"; then
+                echo "FAIL: ${pass} tarball is missing required file: $f"
+                exit 1
+              fi
+            done
+            echo "OK: ${pass} tarball: ${SIZE} bytes, ${ENTRIES} entries, required files present"
+          done
 
       - name: Verify reproducibility
         run: |
