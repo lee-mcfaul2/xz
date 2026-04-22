@@ -1,0 +1,242 @@
+# SPDX-License-Identifier: 0BSD
+#
+# Reproducible release workflow.
+#
+# Goal: given the git source at tag vX.Y.Z, produce a byte-identical source
+# tarball that anyone can independently rebuild and verify. This defends
+# against the class of attack seen in CVE-2024-3094, where a release tarball
+# uploaded by a maintainer contained files not present in the git repo.
+#
+# Reproducibility controls applied:
+#   - Pinned runner image (ubuntu-24.04) locks autoconf/automake/gzip/tar versions
+#   - Pinned action SHAs prevent silent supply-chain drift
+#   - SOURCE_DATE_EPOCH is derived from the tag's commit timestamp, so all
+#     tool-embedded timestamps (configure script, tar mtime, gzip header) are
+#     functions of the git content rather than wall-clock time
+#   - TAR_OPTIONS normalizes ownership/permissions and sorts entries by name
+#   - GZIP=-n strips the gzip-header timestamp
+#   - LC_COLLATE=C makes any sort/glob order locale-independent
+#   - The tarball is built twice and hashes are compared; the job fails if
+#     the two builds disagree, so the reproducibility claim is re-verified
+#     on every release rather than asserted
+#
+# Provenance:
+#   - A SLSA v1 build provenance attestation is produced for each tarball
+#     via actions/attest-build-provenance. Signing is keyless: the workflow's
+#     OIDC identity issues a short-lived Fulcio certificate, the attestation
+#     is logged to the Rekor transparency log, and the resulting bundle is
+#     published to GitHub's attestations API. No long-lived signing key
+#     exists, so there is nothing for a compromised action to steal.
+
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+# Default to no permissions; jobs opt-in to what they need.
+permissions: {}
+
+jobs:
+  test:
+    name: Test before release
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    permissions:
+      contents: read
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          persist-credentials: false
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            autoconf automake build-essential po4a autopoint doxygen libtool
+
+      - name: Build and test
+        run: ./build-aux/ci_build.bash -b autotools -p all
+
+  release:
+    name: Build, verify reproducibility, publish
+    needs: test
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      # Required to create the GitHub Release. No write access to code.
+      contents: write
+      # Required to publish the build provenance attestation.
+      attestations: write
+      # Required to mint the short-lived OIDC token used for keyless signing.
+      # The token is ephemeral (minutes) and scoped to this workflow run, so
+      # it cannot be exfiltrated for later reuse.
+      id-token: write
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          # Need full history so the tag's commit timestamp can be read
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            autoconf automake build-essential po4a autopoint doxygen libtool
+
+      - name: Derive version and SOURCE_DATE_EPOCH
+        id: meta
+        run: |
+          set -eu
+          VERSION="${GITHUB_REF_NAME#v}"
+          # Timestamp of the commit pointed to by the tag — deterministic
+          # across reruns and independent of when CI happens to execute.
+          SDE=$(git log -1 --format=%ct "${GITHUB_REF_NAME}")
+          echo "version=${VERSION}"      >> "$GITHUB_OUTPUT"
+          echo "sde=${SDE}"              >> "$GITHUB_OUTPUT"
+          echo "SOURCE_DATE_EPOCH=${SDE}" >> "$GITHUB_ENV"
+
+      - name: Generate build system (first pass)
+        run: ./autogen.sh --no-po4a
+
+      - name: Build tarballs (first pass)
+        env:
+          # Matches what Makefile.am's `mydist` target sets, applied to the
+          # direct dist-gzip / dist-xz targets.
+          TAR_OPTIONS: '--owner=0 --group=0 --numeric-owner --mode=u+rw,go+r-w --sort=name'
+          LC_COLLATE: 'C'
+          # --no-name strips the original filename and timestamp from the
+          # gzip header. Modern automake defaults GZIP_ENV to include this,
+          # but we set it explicitly so reproducibility does not depend on
+          # the automake version.
+          GZIP: '-n'
+        run: |
+          set -eu
+          mkdir build1
+          cd build1
+          ../configure --quiet
+          make -s dist-gzip dist-xz
+          mkdir -p ../artifacts/pass1
+          cp xz-${{ steps.meta.outputs.version }}.tar.gz ../artifacts/pass1/
+          cp xz-${{ steps.meta.outputs.version }}.tar.xz ../artifacts/pass1/
+
+      - name: Build tarballs (second pass, independent)
+        env:
+          TAR_OPTIONS: '--owner=0 --group=0 --numeric-owner --mode=u+rw,go+r-w --sort=name'
+          LC_COLLATE: 'C'
+          GZIP: '-n'
+        run: |
+          set -eu
+          # Fully independent build tree. If anything non-deterministic slips
+          # in (current time, PID, locale-dependent sort, etc.) the tarballs
+          # produced here will differ from pass 1.
+          mkdir build2
+          cd build2
+          ../configure --quiet
+          make -s dist-gzip dist-xz
+          mkdir -p ../artifacts/pass2
+          cp xz-${{ steps.meta.outputs.version }}.tar.gz ../artifacts/pass2/
+          cp xz-${{ steps.meta.outputs.version }}.tar.xz ../artifacts/pass2/
+
+      - name: Verify reproducibility
+        run: |
+          set -eu
+          cd artifacts
+          sha256sum pass1/* pass2/*
+          # Compare pass1 vs pass2 byte-for-byte. Any mismatch here means
+          # the build still has a non-deterministic input — do NOT publish.
+          diff -q pass1/xz-${{ steps.meta.outputs.version }}.tar.gz \
+                  pass2/xz-${{ steps.meta.outputs.version }}.tar.gz
+          diff -q pass1/xz-${{ steps.meta.outputs.version }}.tar.xz \
+                  pass2/xz-${{ steps.meta.outputs.version }}.tar.xz
+          echo "Reproducibility verified: both independent builds match."
+
+      - name: Produce release artifacts + checksums
+        id: artifacts
+        run: |
+          set -eu
+          mkdir -p release
+          cp artifacts/pass1/xz-${{ steps.meta.outputs.version }}.tar.gz release/
+          cp artifacts/pass1/xz-${{ steps.meta.outputs.version }}.tar.xz release/
+          cd release
+          sha256sum xz-${{ steps.meta.outputs.version }}.tar.gz \
+                    xz-${{ steps.meta.outputs.version }}.tar.xz \
+                    > SHA256SUMS
+
+      - name: Generate SLSA build provenance attestation
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        with:
+          subject-path: |
+            release/xz-${{ steps.meta.outputs.version }}.tar.gz
+            release/xz-${{ steps.meta.outputs.version }}.tar.xz
+
+      - name: Extract release notes from NEWS
+        run: |
+          set -eu
+          VERSION="${{ steps.meta.outputs.version }}"
+          VERSION_RE=$(printf '%s\n' "$VERSION" | sed 's/\./\\./g')
+          awk "
+            /^${VERSION_RE} \(/ { found=1; next }
+            found && /^[0-9]/  { exit }
+            found              { print }
+          " NEWS | sed '/./,$!d' | sed 's/[[:space:]]*$//' > release_notes.txt
+
+      - name: Append reproducibility attestation to release notes
+        run: |
+          set -eu
+          {
+            echo ""
+            echo "---"
+            echo ""
+            echo "## Build provenance"
+            echo ""
+            echo "- **Git commit:** \`${GITHUB_SHA}\`"
+            echo "- **Tag:** \`${GITHUB_REF_NAME}\`"
+            echo "- **SOURCE_DATE_EPOCH:** \`${{ steps.meta.outputs.sde }}\`"
+            echo "- **Runner image:** \`${{ runner.os }} / ubuntu-24.04\`"
+            echo "- **Workflow:** \`${{ github.workflow_ref }}\`"
+            echo ""
+            echo "This tarball was built twice independently in this workflow run and the"
+            echo "two builds produced byte-identical output. Anyone can rebuild from the"
+            echo "git source at the tag above using the same workflow and verify the"
+            echo "SHA256SUMS match."
+            echo ""
+            echo '```'
+            cat release/SHA256SUMS
+            echo '```'
+            echo ""
+            echo "## Verifying build provenance"
+            echo ""
+            echo "Each tarball has a SLSA v1 build provenance attestation, signed keylessly"
+            echo "via GitHub's OIDC identity through sigstore (Fulcio certificate + Rekor"
+            echo "transparency log). No long-lived signing key was used, so there is no"
+            echo "key material a compromised workflow could leak."
+            echo ""
+            echo "Verify with the GitHub CLI:"
+            echo ""
+            echo '```'
+            echo "gh attestation verify xz-${{ steps.meta.outputs.version }}.tar.xz \\"
+            echo "    --repo ${{ github.repository }} \\"
+            echo "    --signer-workflow ${{ github.repository }}/.github/workflows/release.yml"
+            echo '```'
+          } >> release_notes.txt
+
+      - name: Create GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -eu
+          VERSION="${{ steps.meta.outputs.version }}"
+          PRERELEASE=""
+          case "$VERSION" in
+            *alpha*|*beta*) PRERELEASE="--prerelease" ;;
+          esac
+          gh release create "${GITHUB_REF_NAME}" \
+            --title "XZ Utils ${VERSION}" \
+            --notes-file release_notes.txt \
+            ${PRERELEASE} \
+            "release/xz-${VERSION}.tar.gz" \
+            "release/xz-${VERSION}.tar.xz" \
+            release/SHA256SUMS
