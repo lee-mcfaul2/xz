@@ -176,7 +176,12 @@ jobs:
           VER=${{ steps.meta.outputs.version }}
           MIN_SIZE=524288          # 512 KB; real xz-5.8.3.tar.xz is ~2.6 MB
           MIN_ENTRIES=500          # real tarball has 700+ entries
-          REQUIRED=("xz-${VER}/configure" "xz-${VER}/Makefile.in" "xz-${VER}/src/xz/xz.c")
+          REQUIRED=(
+            "xz-${VER}/configure"
+            "xz-${VER}/Makefile.in"
+            "xz-${VER}/src/xz/main.c"
+            "xz-${VER}/src/liblzma/api/lzma.h"
+          )
           for pass in pass1 pass2; do
             TB="artifacts/${pass}/xz-${VER}.tar.xz"
             SIZE=$(wc -c < "$TB")
