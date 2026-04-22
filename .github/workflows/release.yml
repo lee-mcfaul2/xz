@@ -161,6 +161,21 @@ jobs:
       # it cannot be exfiltrated for later reuse.
       id-token: write
     steps:
+      # Must run BEFORE actions/checkout. The minimal ubuntu:24.04 base
+      # image has no git, which would force actions/checkout into its
+      # REST-API fallback — that writes a working tree without a .git/
+      # directory, breaking every later step that needs `git log`. This
+      # step is from the default Ubuntu archive (not the snapshot pin);
+      # git here is only used to clone, not to build, and does not end
+      # up in the tarball, so its version is not part of the
+      # reproducibility surface.
+      - name: Bootstrap git (pre-checkout)
+        shell: sh
+        run: |
+          set -e
+          apt-get update -qq
+          apt-get install -y --no-install-recommends git ca-certificates
+
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           # Need full history so the tag's commit timestamp can be read
