@@ -31,15 +31,19 @@
 #   - The tarball is built twice and hashes are compared; the job fails if
 #     the two builds disagree, so the reproducibility claim is re-verified
 #     on every release rather than asserted
-#   - A post-build sanity check asserts the produced .tar.xz contains the
-#     expected number of entries and specific required files. Earlier
-#     iterations of this workflow published 108-byte *empty* tarballs:
-#     `make -s dist-gzip dist-xz` had the side effect that dist-gzip ran
-#     first, removed distdir, and dist-xz's `tar | xz > file` pipeline
-#     then silently succeeded on an empty pipe because the pipeline's
-#     exit code is xz's, not tar's. The verify step happily matched two
-#     empty tarballs to each other, and the attestation signed nothing.
-#     The sanity check is a liar-detector: exit 0 is not correctness.
+#   - A post-build liar-detector step asserts (a) a size floor on the
+#     .tar.xz and (b) that the tarball's file listing exactly equals
+#     the populated distdir's listing. The expected manifest is derived
+#     from the build system itself (we run `make distdir` to snapshot
+#     the staging directory before `make dist-xz` tars it), so the
+#     check is mechanical, not hardcoded, and survives source-tree
+#     refactors. An earlier iteration of this workflow published
+#     108-byte *empty* tarballs because an intra-pipeline failure
+#     inside make (`tar | xz` where tar failed but xz succeeded on
+#     empty stdin) survived `set -eu` and the verify step happily
+#     matched two empty tarballs to each other. Exit 0 is not a
+#     statement of correctness; a manifest match against the build
+#     system's own declaration is.
 #
 # Provenance:
 #   - A SLSA v1 build provenance attestation is produced for each tarball
@@ -136,8 +140,18 @@ jobs:
           mkdir build1
           cd build1
           ../configure --quiet
-          make -s dist-xz
           VER=${{ steps.meta.outputs.version }}
+          # Split `make distdir` from `make dist-xz` so we can snapshot
+          # the populated staging directory as the canonical manifest
+          # of what the build system committed to shipping. The
+          # subsequent `make dist-xz` sees distdir up-to-date and runs
+          # only the tar+xz step (and removes distdir).
+          make -s distdir
+          ( cd "xz-${VER}" && find . -mindepth 1 | sed 's,^\./,,' ) \
+              | LC_ALL=C sort > ../artifacts/pass1.expected.txt
+          make -s dist-xz
+          tar tJf "xz-${VER}.tar.xz" | sed "s,^xz-${VER}/,,;s,/$,," \
+              | grep -v '^$' | LC_ALL=C sort > ../artifacts/pass1.actual.txt
           # Produce .tar.gz from the deterministic .tar.xz, bypassing
           # automake's dist-gzip (which cannot be made reproducible on
           # modern gzip). Command-line flags on gzip ARE honored.
@@ -156,8 +170,13 @@ jobs:
           mkdir build2
           cd build2
           ../configure --quiet
-          make -s dist-xz
           VER=${{ steps.meta.outputs.version }}
+          make -s distdir
+          ( cd "xz-${VER}" && find . -mindepth 1 | sed 's,^\./,,' ) \
+              | LC_ALL=C sort > ../artifacts/pass2.expected.txt
+          make -s dist-xz
+          tar tJf "xz-${VER}.tar.xz" | sed "s,^xz-${VER}/,,;s,/$,," \
+              | grep -v '^$' | LC_ALL=C sort > ../artifacts/pass2.actual.txt
           xz -d --stdout "xz-${VER}.tar.xz" \
               | gzip --no-name --best > "xz-${VER}.tar.gz"
           mkdir -p ../artifacts/pass2
@@ -165,23 +184,24 @@ jobs:
           cp "xz-${VER}.tar.xz" ../artifacts/pass2/
 
       # Liar-detector: exit 0 from the build steps does NOT mean the
-      # tarball is correct. Earlier iterations of this workflow passed
-      # verification and published 108-byte empty tarballs because a
-      # silent failure inside make's own pipeline survived set -eu.
-      # Assert the tarballs contain real content before we let them
-      # anywhere near the attestation or release steps.
-      - name: Sanity check tarballs are non-empty
+      # tarball is correct. Two checks here:
+      #   (1) Size floor — catches empty-tarball class of failure.
+      #       Earlier iterations of this workflow published 108-byte
+      #       empty tarballs because a silent failure inside make's
+      #       own pipeline survived set -eu.
+      #   (2) Manifest match — the tarball's file listing must equal
+      #       the populated distdir's listing. The distdir is the
+      #       build system's canonical declaration of what the tarball
+      #       should contain, so deriving expectations from it (rather
+      #       than hardcoding filenames) is mechanical and survives
+      #       source-tree refactors. An extra file injected by a
+      #       compromised dist-hook and a missing file from a
+      #       truncated tar both fail this assertion.
+      - name: Verify tarball matches build system's declared manifest
         run: |
           set -euo pipefail
           VER=${{ steps.meta.outputs.version }}
-          MIN_SIZE=524288          # 512 KB; real xz-5.8.3.tar.xz is ~2.6 MB
-          MIN_ENTRIES=500          # real tarball has 700+ entries
-          REQUIRED=(
-            "xz-${VER}/configure"
-            "xz-${VER}/Makefile.in"
-            "xz-${VER}/src/xz/main.c"
-            "xz-${VER}/src/liblzma/api/lzma.h"
-          )
+          MIN_SIZE=524288   # 512 KB; real xz-5.8.3.tar.xz is ~2.6 MB
           for pass in pass1 pass2; do
             TB="artifacts/${pass}/xz-${VER}.tar.xz"
             SIZE=$(wc -c < "$TB")
@@ -189,19 +209,16 @@ jobs:
               echo "FAIL: ${pass} tarball is suspiciously small: ${SIZE} bytes (< ${MIN_SIZE})"
               exit 1
             fi
-            ENTRIES=$(tar -tJf "$TB" | wc -l)
-            if [ "$ENTRIES" -lt "$MIN_ENTRIES" ]; then
-              echo "FAIL: ${pass} tarball has too few entries: ${ENTRIES} (< ${MIN_ENTRIES})"
+            EXPECTED="artifacts/${pass}.expected.txt"
+            ACTUAL="artifacts/${pass}.actual.txt"
+            if ! diff -u "$EXPECTED" "$ACTUAL" > /tmp/manifest.diff; then
+              echo "FAIL: ${pass} tarball does not match the distdir manifest"
+              echo "      (declared-by-build-system vs actually-in-tarball, unified diff:)"
+              cat /tmp/manifest.diff
               exit 1
             fi
-            LIST=$(tar -tJf "$TB")
-            for f in "${REQUIRED[@]}"; do
-              if ! printf '%s\n' "$LIST" | grep -qx "$f"; then
-                echo "FAIL: ${pass} tarball is missing required file: $f"
-                exit 1
-              fi
-            done
-            echo "OK: ${pass} tarball: ${SIZE} bytes, ${ENTRIES} entries, required files present"
+            ENTRIES=$(wc -l < "$ACTUAL")
+            echo "OK: ${pass} tarball: ${SIZE} bytes, ${ENTRIES} entries, manifest matches distdir"
           done
 
       - name: Verify reproducibility
