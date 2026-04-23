@@ -167,15 +167,21 @@ jobs:
           cd "${GITHUB_WORKSPACE}"
           mkdir -p /tmp/scan
 
-          # Bootstrap sequence. If the project provides its own
-          # hook, use that verbatim. Otherwise fall back to the
-          # conventional autotools sequence in order of preference.
+          # Bootstrap sequence. Priority:
+          #   1. Project-provided .slsa-autotools/build-hook.sh.
+          #   2. ./autogen.sh or ./bootstrap if present, then a
+          #      fallback to autoreconf -fi if that didn't produce
+          #      a configure script (many projects gate their
+          #      autogen behind a -s / --dev flag so running it
+          #      bare prints a warning and exits without doing any
+          #      work — libsodium is a canonical example).
+          #   3. Plain autoreconf -fi against configure.ac.
           if [ -x .slsa-autotools/build-hook.sh ]; then
             BUILD_CMD='./.slsa-autotools/build-hook.sh'
           elif [ -x autogen.sh ]; then
-            BUILD_CMD='./autogen.sh && ./configure --quiet && make -s dist'
+            BUILD_CMD='./autogen.sh; [ -x ./configure ] || autoreconf -fi; ./configure --quiet && make -s dist'
           elif [ -x bootstrap ]; then
-            BUILD_CMD='./bootstrap && ./configure --quiet && make -s dist'
+            BUILD_CMD='./bootstrap; [ -x ./configure ] || autoreconf -fi; ./configure --quiet && make -s dist'
           elif [ -f configure.ac ] || [ -f configure.in ]; then
             BUILD_CMD='autoreconf -fi && ./configure --quiet && make -s dist'
           else
@@ -405,17 +411,31 @@ jobs:
             # argument to printf.
             echo " && printf '%s\\n' \\"
 
-            # Filename reconstruction: the Packages index stores
-            # Filename as pool/main/a/autoconf/autoconf_2.71-3_all.deb
-            # but apt-get download writes to disk with ':' encoded
-            # as '%3a'. We mirror that encoding so sha256sum -c
-            # finds the actual files on disk.
+            # Filename reconstruction. Two conventions in play:
+            #   - The Packages index Filename field stores the
+            #     *pool* path, with epoch stripped:
+            #       pool/main/a/automake/automake_1.16.5-1.3ubuntu1_all.deb
+            #   - apt-get download writes to disk with the full
+            #     epoch URL-encoded as %3a:
+            #       automake_1%3a1.16.5-1.3ubuntu1_all.deb
+            # Our SHA256SUMS must match the on-disk name, which is
+            # apt's convention. The hash is content-addressed so
+            # it's identical between the two naming schemes — we
+            # just have to use the right name in the -c file.
             awk -F'\t' '
               {
-                n = split($4, parts, "/")
-                deb = parts[n]
-                gsub(/:/, "%3a", deb)
-                printf "      %c%s  %s%c \\\n", 39, $3, deb, 39
+                pkg = $1; ver = $2; sha = $3; filename = $4
+                n = split(filename, parts, "/")
+                pool_deb = parts[n]
+                # Extract architecture from the pool basename:
+                # "automake_1.16.5-1.3ubuntu1_all.deb" -> "all"
+                m = split(pool_deb, fields, "_")
+                arch = fields[m]
+                sub(/\.deb$/, "", arch)
+                # URL-encode colons in the version segment
+                gsub(/:/, "%3a", ver)
+                apt_name = pkg "_" ver "_" arch ".deb"
+                printf "      %c%s  %s%c \\\n", 39, sha, apt_name, 39
               }' /tmp/scan/pins.txt | sort -k3,3
 
             echo "    > SHA256SUMS \\"
