@@ -615,10 +615,17 @@ jobs:
         id: meta
         run: |
           set -eu
+          # See the source job's meta step for the VERSION vs PACKAGE_VER
+          # distinction. File paths must use PACKAGE_VER; human labels
+          # use VERSION.
           VERSION="${GITHUB_REF_NAME#v}"
+          PACKAGE_VER=$(sh build-aux/version.sh)
           SDE=$(git log -1 --format=%ct "${GITHUB_REF_NAME}")
-          echo "version=${VERSION}"      >> "$GITHUB_OUTPUT"
-          echo "sde=${SDE}"              >> "$GITHUB_OUTPUT"
+          {
+            echo "version=${VERSION}"
+            echo "package_ver=${PACKAGE_VER}"
+            echo "sde=${SDE}"
+          } >> "$GITHUB_OUTPUT"
           echo "SOURCE_DATE_EPOCH=${SDE}" >> "$GITHUB_ENV"
 
       - name: Install reproducibility wrappers
