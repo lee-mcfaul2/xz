@@ -98,7 +98,6 @@ RUN set -eux \
       libdb5.3t64=5.3.28+dfsg2-7 \
       liberror-perl=0.17029-2 \
       libexpat1=2.6.1-2ubuntu0.4 \
-      libffi-dev=3.4.6-1build1 \
       libffi8=3.4.6-1build1 \
       libgcc-13-dev=13.3.0-6ubuntu2~24.04.1 \
       libgcc-s1=14.2.0-4ubuntu2~24.04.1 \
@@ -146,6 +145,8 @@ RUN set -eux \
       libsframe1=2.42-4ubuntu2.10 \
       libsgmls-perl=1.03ii-38 \
       libsmartcols1=2.39.3-9ubuntu6.5 \
+      libsqlite3-0=3.45.1-1ubuntu2.5 \
+      libsqlite3-dev=3.45.1-1ubuntu2.5 \
       libssh-4=0.10.6-2ubuntu0.4 \
       libssl3t64=3.0.13-0ubuntu3.9 \
       libstdc++-13-dev=13.3.0-6ubuntu2~24.04.1 \
@@ -221,6 +222,7 @@ RUN set -eux \
       '498944010019fe64899ade85735281c8ef45d98b210e66ba1ce12478834a8e09  libpod-parser-perl_1.67-1_all.deb' \
       '4c31cc76391ca47dbb4585edc740728f43fe7b6b090f5b3947fc8072db698aca  liblzma5_5.6.1+really5.4.5-1ubuntu0.2_amd64.deb' \
       '4e040926e50fb961fae9bf95660189d468336a4a17bc321872c434fc8f777e7f  libisl23_0.26-3build1.1_amd64.deb' \
+      '5131ce3d7cdb7193bcef1b402741a0e0f436e25a50e65443fffcc7064e2cd780  libsqlite3-dev_3.45.1-1ubuntu2.5_amd64.deb' \
       '526790098bf711ca4fa21cfdf334acdb9cd8e59d3b5732174ceca8ebc8eba98b  perl-base_5.38.2-3.2ubuntu0.2_amd64.deb' \
       '5338a17b0c7da20280097d5730ab640c8fcc2b4547acdda29361b27675b937c6  gettext_0.21-14ubuntu2_amd64.deb' \
       '53e1e1753729d04cf65b05e6e58abe06e2bb76cc07eff0e1b2a638a638ca209b  libtinfo6_6.4+20240113-1ubuntu2_amd64.deb' \
@@ -234,7 +236,6 @@ RUN set -eux \
       '6abaa6c26f46ef17764c4a753e0e84de1cdadde5634fd2987621fdc617988d19  libselinux1_3.5-2ubuntu2.1_amd64.deb' \
       '6c4e125792e09d55670a132f1c38b740068b3c7b6b0c6a74abe6c3da981f3a61  perl_5.38.2-3.2ubuntu0.2_amd64.deb' \
       '6d97fbc1972633083f08f51ccab433606c97bbceb897c631c66495117ca3406f  libnettle8t64_3.9.1-2.2build1.1_amd64.deb' \
-      '7009959b8a3b77206325026917fb45150ac81bf6139468abc0841d5a29c8619d  libffi-dev_3.4.6-1build1_amd64.deb' \
       '7074b6a2f6367a10d280c00a1cb02e74277709180bab4f2491a2f355ab2d6c20  zlib1g_1%3a1.3.dfsg-3.1ubuntu2.1_amd64.deb' \
       '71a30882e150a73905baa895ed0b0acaea0e3739346cbfa3934bcc3ad3172628  libperl5.38t64_5.38.2-3.2ubuntu0.2_amd64.deb' \
       '72093fb456864db55f1352bfa5e952a94f7abaff64e71dff1fbf001db1984564  libsframe1_2.42-4ubuntu2.10_amd64.deb' \
@@ -261,6 +262,7 @@ RUN set -eux \
       '96490acdee09245bb47ff4684dc59a7ac3b29619da868ef3e9d8323c61a02ac4  findutils_4.9.0-5build1_amd64.deb' \
       '967a39dbc14236d1580ede01d80fd78444668572e716734e1ac66c175052594e  librtmp1_2.4+20151223.gitfa8646d.1-2build7_amd64.deb' \
       '9d1d707179675d38e024bb13613b1d99e0d33fa6c45e5f3bcba19340781781d3  libtool_2.4.7-7build1_all.deb' \
+      '9e4569a5b992e70899527023ec1871b5abe92afb41c9eb53b38c2ccae056f6db  libsqlite3-0_3.45.1-1ubuntu2.5_amd64.deb' \
       'a09b856849cf36190f8cd39da33486b14bcaf81b592530b2f3236da17daaad2f  sed_4.9-2build1_amd64.deb' \
       'a134b0319a82d14581b3a14820d2832af4ec9778ed8b9b4ddaeecfb0555ec325  gcc-13-x86-64-linux-gnu_13.3.0-6ubuntu2~24.04.1_amd64.deb' \
       'a16dea3abe2dcac99bcfae27e7e5672fde64573c3c170dcb0cd55631238f9814  libubsan1_14.2.0-4ubuntu2~24.04.1_amd64.deb' \
