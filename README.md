@@ -1,5 +1,16 @@
 # XZ Utils — secure-build demo fork
 
+> **⚠️ Do not use any artifact published by this fork in production or for
+> any real workload.** The tarballs, Windows binaries, and signatures
+> produced by this repository's release pipeline exist **only to
+> demonstrate the pipeline itself**. They are not maintained, not tracked
+> against upstream security fixes, and may stop being rebuilt at any
+> time. If you need xz-utils, get it from
+> [tukaani-project/xz](https://github.com/tukaani-project/xz) or your
+> distribution. This fork is a worked example of the release mechanism
+> for other maintainers to read, copy, and adapt — it is not a
+> distribution channel.
+
 > **This is a fork of [tukaani-project/xz](https://github.com/tukaani-project/xz).**
 > It is not intended for upstream merge, and the maintainers of the original
 > project are not involved. The source code is unchanged from upstream; only
