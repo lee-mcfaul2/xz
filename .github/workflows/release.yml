@@ -317,14 +317,19 @@ jobs:
           subject-path: release/${{ env.distdir }}.tar.*
 
       - name: Install cosign
-        # cosign isn't in the scan-derived builder image because the
-        # trace only covers `make dist`, not the release-sign step.
-        # Install from the official GitHub release with SHA256
-        # verification, same version and digest as build-container.yml
-        # uses so the signing tool itself is pinned across the
+        # Neither cosign nor curl is in the scan-derived builder
+        # image — the strace trace only covers `make dist`, which
+        # never invokes them. We pull curl from the same pinned
+        # apt snapshot the Dockerfile uses (sources.list is already
+        # set to snapshot.ubuntu.com in the image), then download
+        # cosign from its GitHub release with SHA256 verification.
+        # Same cosign version and digest as build-container.yml so
+        # the signing tool is pinned consistently across the
         # pipeline.
         run: |
           set -euo pipefail
+          apt-get update -qq
+          apt-get install -y --no-install-recommends curl ca-certificates
           COSIGN_VERSION=v3.0.6
           COSIGN_SHA256=c956e5dfcac53d52bcf058360d579472f0c1d2d9b69f55209e256fe7783f4c74
           curl -fsSL \
