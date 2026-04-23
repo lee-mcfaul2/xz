@@ -359,9 +359,290 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
+  build_windows:
+    # Runtime-gated: runs only when the repo ships a Windows build
+    # entry point. hashFiles() returns '' when none of the listed
+    # paths exist, non-empty hash otherwise.
+    #   - .slsa-autotools/windows-hook.sh   (hook, takes precedence)
+    #   - windows/build.bash                (xz convention)
+    # Consequence: repos without a Windows path see a "Skipped"
+    # build_windows in the UI. Cosmetic; publish is gated so a skip
+    # doesn't block the release.
+    name: Build Windows binaries, verify, sign
+    needs: test
+    if: hashFiles('windows/build.bash', '.slsa-autotools/windows-hook.sh') != ''
+    runs-on: ubuntu-24.04
+    container:
+      image: ghcr.io/${{ github.repository }}/builder@sha256:b9bf5383ae53d40dc13481f740c952c9dfd7e0e632009359cc355aa2dfc04387
+    defaults:
+      run:
+        shell: bash
+    timeout-minutes: 60
+    permissions:
+      contents: read
+      attestations: write
+      id-token: write
+
+    steps:
+      - name: Mark workspace safe for git (pre-checkout)
+        shell: sh
+        run: git config --global --add safe.directory '*'
+
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Derive version and SOURCE_DATE_EPOCH
+        id: meta
+        run: |
+          set -eu
+          VERSION="${GITHUB_REF_NAME#v}"
+          SDE=$(git log -1 --format=%ct "${GITHUB_REF_NAME}")
+          {
+            echo "version=${VERSION}"
+            echo "sde=${SDE}"
+          } >> "$GITHUB_OUTPUT"
+          echo "SOURCE_DATE_EPOCH=${SDE}" >> "$GITHUB_ENV"
+
+      - name: Bootstrap autotools
+        run: |
+          set -euo pipefail
+          if [ -x .slsa-autotools/build-hook.sh ]; then
+            ./.slsa-autotools/build-hook.sh
+          else
+            if   [ -x autogen.sh ]; then ./autogen.sh || true
+            elif [ -x bootstrap ]; then  ./bootstrap  || true
+            fi
+            if [ ! -x ./configure ] && { [ -f configure.ac ] || [ -f configure.in ]; }; then
+              autoreconf -fi
+            fi
+          fi
+          [ -x ./configure ] || { echo "ERROR: no ./configure after bootstrap"; exit 1; }
+
+      - name: Detect Windows build entry point
+        id: windows
+        run: |
+          set -eu
+          if [ -x .slsa-autotools/windows-hook.sh ]; then
+            echo "cmd=./.slsa-autotools/windows-hook.sh" >> "$GITHUB_OUTPUT"
+          elif [ -x windows/build.bash ]; then
+            echo "cmd=bash windows/build.bash" >> "$GITHUB_OUTPUT"
+          else
+            echo "ERROR: Windows job reached without an entry point; hashFiles gate disagrees with detection?"
+            exit 1
+          fi
+
+      - name: Install reproducibility wrappers
+        # Universal for any mingw-based Windows build: the build
+        # script itself stays unmodified upstream.
+        #   (A) ${TRIPLET}-gcc wrapper injects -ffile-prefix-map so
+        #       debug paths are stable, and -Wl,--no-insert-timestamp
+        #       + --build-id=none so the PE header and build-id
+        #       sections don't carry run-to-run entropy.
+        #   (B) 7z wrapper clamps mtimes to SOURCE_DATE_EPOCH before
+        #       archive create/update, so the zip/7z central directory
+        #       records deterministic timestamps.
+        # PATH is then prefixed with /opt/wrappers so any invocation
+        # of gcc / 7z picks up the wrappers transparently.
+        run: |
+          set -euo pipefail
+          mkdir -p /opt/wrappers
+          for TRIPLET in i686-w64-mingw32 x86_64-w64-mingw32; do
+            cat > "/opt/wrappers/${TRIPLET}-gcc" <<WRAP
+          #!/bin/sh
+          exec /usr/bin/${TRIPLET}-gcc \\
+            "-ffile-prefix-map=\${DISTDIR_TOP}=." \\
+            -Wl,--no-insert-timestamp \\
+            -Wl,--build-id=none \\
+            "\$@"
+          WRAP
+            chmod +x "/opt/wrappers/${TRIPLET}-gcc"
+          done
+          cat > /opt/wrappers/7z <<'WRAP'
+          #!/bin/sh
+          case "$1" in
+            a|u)
+              find . -exec touch --no-dereference -h -d "@${SOURCE_DATE_EPOCH}" {} + 2>/dev/null || true
+              ;;
+          esac
+          exec /usr/bin/7z "$@"
+          WRAP
+          chmod +x /opt/wrappers/7z
+          echo "PATH=/opt/wrappers:${PATH}" >> "$GITHUB_ENV"
+
+      - name: Build Windows binaries (first pass)
+        env:
+          TAR_OPTIONS: '--owner=0 --group=0 --numeric-owner --mode=u+rw,go+r-w --sort=name --clamp-mtime --mtime=@${{ steps.meta.outputs.sde }}'
+          LC_COLLATE: 'C'
+        run: |
+          set -euo pipefail
+          WINDOWS_CMD='${{ steps.windows.outputs.cmd }}'
+          mkdir build1
+          cd build1
+          ../configure --quiet
+          make -s distdir
+          PACKAGE=$(awk -F' *= *' '$1 == "PACKAGE" {print $2; exit}' Makefile)
+          VERSION=$(awk -F' *= *' '$1 == "VERSION" {print $2; exit}' Makefile)
+          DISTDIR="${PACKAGE}-${VERSION}"
+          [ -n "${PACKAGE}" ] && [ -n "${VERSION}" ] && [ -d "${DISTDIR}" ] \
+            || { echo "ERROR: could not locate distdir (PACKAGE=${PACKAGE:-unset} VERSION=${VERSION:-unset})"; ls -la; exit 1; }
+          echo "distdir=${DISTDIR}" >> "$GITHUB_ENV"
+          FIXED_DATE=$(date -u -d "@${SOURCE_DATE_EPOCH}" "+%Y-%m-%d %H:%M+0000")
+          find "${DISTDIR}" -type f \( -name '*.pot' -o -name '*.po' \) \
+            -exec sed -i "s|^\"POT-Creation-Date: .*|\"POT-Creation-Date: ${FIXED_DATE}\\\\n\"|" {} + 2>/dev/null || true
+          cd "${DISTDIR}"
+          # DISTDIR_TOP is what -ffile-prefix-map rewrites to "." in
+          # debug paths — must be exported before the build fires.
+          DISTDIR_TOP="$(pwd)"
+          export DISTDIR_TOP
+          bash -c "${WINDOWS_CMD}"
+          # Collect whatever the build produced matching our glob.
+          # Projects with different naming conventions can supply a
+          # .slsa-autotools/windows-hook.sh that renames outputs into
+          # this shape.
+          mkdir -p ../../artifacts/win-pass1
+          shopt -s nullglob
+          copied=0
+          for f in *-windows.zip *-windows.7z *-windows.tar.gz *-windows.tar.xz; do
+            cp "$f" ../../artifacts/win-pass1/
+            copied=$((copied+1))
+          done
+          if [ "${copied}" -eq 0 ]; then
+            echo "ERROR: Windows build produced no *-windows.{zip,7z,tar.gz,tar.xz} artifacts in $(pwd)"
+            ls -la
+            exit 1
+          fi
+
+      - name: Build Windows binaries (second pass, independent)
+        env:
+          TAR_OPTIONS: '--owner=0 --group=0 --numeric-owner --mode=u+rw,go+r-w --sort=name --clamp-mtime --mtime=@${{ steps.meta.outputs.sde }}'
+          LC_COLLATE: 'C'
+        run: |
+          set -euo pipefail
+          WINDOWS_CMD='${{ steps.windows.outputs.cmd }}'
+          mkdir build2
+          cd build2
+          ../configure --quiet
+          make -s distdir
+          FIXED_DATE=$(date -u -d "@${SOURCE_DATE_EPOCH}" "+%Y-%m-%d %H:%M+0000")
+          find "${distdir}" -type f \( -name '*.pot' -o -name '*.po' \) \
+            -exec sed -i "s|^\"POT-Creation-Date: .*|\"POT-Creation-Date: ${FIXED_DATE}\\\\n\"|" {} + 2>/dev/null || true
+          cd "${distdir}"
+          DISTDIR_TOP="$(pwd)"
+          export DISTDIR_TOP
+          bash -c "${WINDOWS_CMD}"
+          mkdir -p ../../artifacts/win-pass2
+          shopt -s nullglob
+          for f in *-windows.zip *-windows.7z *-windows.tar.gz *-windows.tar.xz; do
+            cp "$f" ../../artifacts/win-pass2/
+          done
+
+      - name: Verify Windows reproducibility
+        run: |
+          set -eu
+          cd artifacts
+          sha256sum win-pass1/* win-pass2/*
+          for f in win-pass1/*; do
+            base=$(basename "$f")
+            diff -q "win-pass1/${base}" "win-pass2/${base}"
+          done
+          echo "Windows reproducibility verified."
+
+      - name: Diagnose Windows differences
+        if: ${{ failure() }}
+        run: |
+          set -u
+          cd artifacts
+          sha256sum win-pass1/* win-pass2/* || true
+          for f in win-pass1/*; do
+            base=$(basename "$f")
+            echo "=== ${base} listing diff ==="
+            case "${base}" in
+              *.zip|*.7z) 7z l "win-pass1/${base}" > /tmp/p1.list 2>/dev/null || true
+                          7z l "win-pass2/${base}" > /tmp/p2.list 2>/dev/null || true ;;
+              *.tar.*)    tar tvf "win-pass1/${base}" > /tmp/p1.list 2>/dev/null || true
+                          tar tvf "win-pass2/${base}" > /tmp/p2.list 2>/dev/null || true ;;
+            esac
+            diff -u /tmp/p1.list /tmp/p2.list | head -100 || true
+          done
+
+      - name: Size-floor sanity check
+        # Generic liar-detector for Windows artifacts. Catches empty
+        # or truncated archives before signing. A deeper
+        # entry-manifest check (project-specific) is a candidate for
+        # a later .slsa-autotools/windows-manifest.txt hook.
+        run: |
+          set -euo pipefail
+          MIN_SIZE=131072   # 128 KiB floor — tune per project
+          for f in artifacts/win-pass1/*; do
+            SIZE=$(wc -c < "$f")
+            if [ "${SIZE}" -lt "${MIN_SIZE}" ]; then
+              echo "FAIL: $(basename "$f") suspiciously small: ${SIZE} < ${MIN_SIZE}"
+              exit 1
+            fi
+            echo "OK: $(basename "$f") ${SIZE} bytes"
+          done
+
+      - name: Assemble release artifacts
+        run: |
+          set -eu
+          mkdir -p release
+          cp artifacts/win-pass1/* release/
+
+      - name: SLSA build provenance
+        uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
+        with:
+          subject-path: |
+            release/*-windows.zip
+            release/*-windows.7z
+            release/*-windows.tar.gz
+            release/*-windows.tar.xz
+
+      - name: Install cosign
+        run: |
+          set -euo pipefail
+          apt-get update -qq
+          apt-get install -y --no-install-recommends curl ca-certificates
+          COSIGN_VERSION=v3.0.6
+          COSIGN_SHA256=c956e5dfcac53d52bcf058360d579472f0c1d2d9b69f55209e256fe7783f4c74
+          curl -fsSL \
+            "https://github.com/sigstore/cosign/releases/download/${COSIGN_VERSION}/cosign-linux-amd64" \
+            -o /usr/local/bin/cosign
+          echo "${COSIGN_SHA256}  /usr/local/bin/cosign" | sha256sum -c -
+          chmod +x /usr/local/bin/cosign
+
+      - name: Sign Windows artifacts with cosign
+        env:
+          COSIGN_YES: 'true'
+        run: |
+          set -euo pipefail
+          for f in release/*-windows.*; do
+            [ -f "${f}" ] || continue
+            case "${f}" in *.sigstore) continue ;; esac
+            cosign sign-blob --bundle "${f}.sigstore" --new-bundle-format "${f}"
+          done
+          ls -la release/
+
+      - name: Upload Windows artifacts for publish job
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
+        with:
+          name: windows-artifacts
+          path: release/
+          if-no-files-found: error
+          retention-days: 1
+
   publish:
     name: Create draft release
-    needs: build_source
+    # needs build_windows too so publish waits for it, but we can't
+    # block on it: projects without a Windows path see build_windows
+    # as skipped. The if: below permits skipped + success while
+    # refusing failed/cancelled.
+    needs: [build_source, build_windows]
+    if: |
+      always()
+      && needs.build_source.result == 'success'
+      && (needs.build_windows.result == 'success' || needs.build_windows.result == 'skipped')
     runs-on: ubuntu-24.04
     timeout-minutes: 10
     permissions:
@@ -390,6 +671,13 @@ jobs:
           name: source-artifacts
           path: release
 
+      - name: Download Windows artifacts
+        if: needs.build_windows.result == 'success'
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          name: windows-artifacts
+          path: release
+
       - name: Discover distdir name
         id: dist
         run: |
@@ -400,6 +688,22 @@ jobs:
           echo "distdir=${DISTDIR}" >> "$GITHUB_OUTPUT"
           echo "distdir=${DISTDIR}"
 
+      - name: Regenerate SHA256SUMS over all artifacts
+        # The source job writes a SHA256SUMS covering only its own
+        # tarballs. Now that windows artifacts (if any) are also
+        # in release/, rewrite to cover everything except sigstore
+        # bundles and SHA256SUMS itself.
+        run: |
+          set -euo pipefail
+          cd release
+          rm -f SHA256SUMS
+          ls -1 \
+            | grep -v '\.sigstore$' \
+            | grep -v '^SHA256SUMS$' \
+            | LC_ALL=C sort \
+            | xargs sha256sum > SHA256SUMS
+          cat SHA256SUMS
+
       - name: Build release notes
         env:
           VERSION: ${{ steps.meta.outputs.version }}
@@ -407,6 +711,15 @@ jobs:
           DISTDIR: ${{ steps.dist.outputs.distdir }}
         run: |
           set -eu
+          # Enumerate main artifacts = anything in release/ that isn't
+          # a sigstore bundle or SHA256SUMS. Covers source tarballs +
+          # windows archives (zip/7z/tar.*) uniformly.
+          main_artifacts() {
+            ls -1 release \
+              | grep -v '\.sigstore$' \
+              | grep -v '^SHA256SUMS$' \
+              | LC_ALL=C sort
+          }
           {
             echo "## Release ${VERSION}"
             echo
@@ -440,36 +753,30 @@ jobs:
             echo
             echo "**SLSA provenance (needs the \`gh\` CLI):**"
             echo '```'
-            for f in release/*.tar.*; do
-              case "${f}" in *.sigstore) continue ;; esac
-              base=$(basename "${f}")
+            while read -r base; do
               echo "gh attestation verify ${base} \\"
               echo "    --repo ${{ github.repository }} \\"
               echo "    --signer-workflow ${{ github.repository }}/.github/workflows/release.yml"
-            done
+            done < <(main_artifacts)
             echo '```'
             echo
             echo "**cosign detached signature (works without \`gh\`):**"
             echo '```'
-            for f in release/*.tar.*; do
-              case "${f}" in *.sigstore) continue ;; esac
-              base=$(basename "${f}")
+            while read -r base; do
               echo "cosign verify-blob \\"
               echo "    --bundle ${base}.sigstore --new-bundle-format \\"
               echo "    --certificate-identity \\"
               echo "      'https://github.com/${{ github.repository }}/.github/workflows/release.yml@refs/tags/${GITHUB_REF_NAME}' \\"
               echo "    --certificate-oidc-issuer 'https://token.actions.githubusercontent.com' \\"
               echo "    ${base}"
-            done
+            done < <(main_artifacts)
             echo '```'
             echo
             echo "**GPG (after the maintainer publishes):**"
             echo '```'
-            for f in release/*.tar.*; do
-              case "${f}" in *.sigstore) continue ;; esac
-              base=$(basename "${f}")
+            while read -r base; do
               echo "gpg --verify ${base}.asc ${base}"
-            done
+            done < <(main_artifacts)
             echo '```'
           } > release_notes.md
 
@@ -486,13 +793,15 @@ jobs:
           case "${VERSION}" in
             *alpha*|*beta*|*rc*|*demo*|*pre*) PRERELEASE="--prerelease" ;;
           esac
+          # Upload everything in release/ — tarballs, windows
+          # archives (if any), sigstore bundles, and SHA256SUMS. Each
+          # filename is unique so no dedup needed.
           gh release create "${GITHUB_REF_NAME}" \
             --title "${VERSION}" \
             --notes-file release_notes.md \
             --draft \
             ${PRERELEASE} \
-            release/*.tar.* \
-            release/SHA256SUMS
+            release/*
 
       - name: Maintainer action needed
         run: |
@@ -504,16 +813,16 @@ jobs:
             echo '```'
             echo "# From a machine with your GPG private key:"
             echo "gh release download ${GITHUB_REF_NAME} -R ${{ github.repository }}"
-            echo "for f in *.tar.*; do"
-            echo "  case \"\$f\" in *.sigstore|*.asc) continue ;; esac"
-            echo "  gpg --detach-sign --armor \"\$f\""
+            echo "for f in *; do"
+            echo "  case \"\$f\" in *.sigstore|*.asc|SHA256SUMS) continue ;; esac"
+            echo "  [ -f \"\$f\" ] && gpg --detach-sign --armor \"\$f\""
             echo "done"
             echo "gh release upload ${GITHUB_REF_NAME} *.asc -R ${{ github.repository }}"
             echo "gh release edit   ${GITHUB_REF_NAME} --draft=false -R ${{ github.repository }}"
             echo '```'
             echo
             echo "The \`--detach-sign --armor\` flags produce \`.asc\` files"
-            echo "that sit alongside the original artifacts. The tarball bytes"
-            echo "are untouched, so existing SLSA and cosign signatures remain"
-            echo "valid after publication."
+            echo "that sit alongside the original artifacts. The original"
+            echo "bytes are untouched, so existing SLSA and cosign signatures"
+            echo "remain valid after publication."
           } >> "$GITHUB_STEP_SUMMARY"

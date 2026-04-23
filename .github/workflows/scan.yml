@@ -128,6 +128,36 @@ jobs:
           rm -f /etc/apt/sources.list.d/*.sources /etc/apt/sources.list.d/*.list
           apt-get update -qq
 
+      - name: Detect Windows build entry point
+        # Universal detection, convention- and hook-driven:
+        #   - .slsa-autotools/windows-hook.sh   (hook, highest priority)
+        #   - windows/build.bash                (xz convention; candidate
+        #                                        for becoming a wider
+        #                                        default as we see more
+        #                                        projects adopt it)
+        # When detected, the bootstrap step below also installs the
+        # mingw-w64 cross-toolchain + archive tooling, and the trace
+        # step below also runs the Windows build so its apt deps land
+        # in the emitted Dockerfile naturally.
+        id: windows
+        run: |
+          set -eu
+          if [ -x .slsa-autotools/windows-hook.sh ]; then
+            CMD='./.slsa-autotools/windows-hook.sh'
+          elif [ -x windows/build.bash ]; then
+            CMD='bash windows/build.bash'
+          else
+            CMD=''
+          fi
+          if [ -n "${CMD}" ]; then
+            echo "detected=true" >> "$GITHUB_OUTPUT"
+            echo "cmd=${CMD}"   >> "$GITHUB_OUTPUT"
+            echo "Windows build detected: ${CMD}"
+          else
+            echo "detected=false" >> "$GITHUB_OUTPUT"
+            echo "No Windows build entry point detected."
+          fi
+
       - name: Install bootstrap toolchain
         # A deliberately generous set of packages so most autotools
         # projects can actually run ./configure && make dist to
@@ -168,6 +198,21 @@ jobs:
             libcurl4-openssl-dev \
             libxml2-dev \
             libsqlite3-dev
+          # Conditional: mingw cross-toolchain + archive tooling, only
+          # when a Windows build path is present. Keeps the emitted
+          # Dockerfile minimal for projects that don't ship Windows
+          # binaries. ghostscript is included because xz's build.bash
+          # uses it to produce PDF manuals; harmless if not invoked.
+          if [ "${{ steps.windows.outputs.detected }}" = 'true' ]; then
+            apt-get install -y --no-install-recommends \
+              mingw-w64 \
+              gcc-mingw-w64-i686 \
+              gcc-mingw-w64-x86-64 \
+              binutils-mingw-w64-i686 \
+              binutils-mingw-w64-x86-64 \
+              7zip \
+              ghostscript
+          fi
           git config --global --add safe.directory "${GITHUB_WORKSPACE}"
 
       - name: Run project build under strace
@@ -217,6 +262,22 @@ jobs:
             || { echo "Build under strace FAILED."; \
                  tail -100 /tmp/scan/trace.log || true; \
                  exit 1; }
+
+          # Windows build, if detected. Traced into a separate file
+          # and concatenated onto the primary log so the downstream
+          # path→package mapping picks up mingw/7zip/ghostscript
+          # transparently — no second codepath below.
+          WINDOWS_CMD='${{ steps.windows.outputs.cmd }}'
+          if [ -n "${WINDOWS_CMD}" ]; then
+            echo "Tracing Windows build: ${WINDOWS_CMD}"
+            strace -f -e trace=openat,execve -o /tmp/scan/trace-windows.log \
+                   bash -c "${WINDOWS_CMD}" \
+              || { echo "Windows build under strace FAILED."; \
+                   tail -100 /tmp/scan/trace-windows.log || true; \
+                   exit 1; }
+            cat /tmp/scan/trace-windows.log >> /tmp/scan/trace.log
+            echo "Windows trace appended: $(wc -l < /tmp/scan/trace-windows.log) lines"
+          fi
 
           echo "trace_lines=$(wc -l < /tmp/scan/trace.log)" >> "$GITHUB_OUTPUT"
           echo "Trace captured: $(wc -l < /tmp/scan/trace.log) lines"
