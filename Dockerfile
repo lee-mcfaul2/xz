@@ -62,7 +62,6 @@ RUN set -eux \
       libc6=2.39-0ubuntu8.7 \
       libc6-dev=2.39-0ubuntu8.7 \
       libcurl4-openssl-dev=8.5.0-2ubuntu10.8 \
-      libffi-dev=3.4.6-1build1 \
       libgcc-13-dev=13.3.0-6ubuntu2~24.04.1 \
       libgmp10=2:6.3.0+dfsg-2ubuntu6.1 \
       libmagic-mgc=1:5.45-3build1 \
@@ -79,9 +78,11 @@ RUN set -eux \
       sed=4.9-2build1 \
       tar=1.35+dfsg-3build1 \
       xz-utils=5.6.1+really5.4.5-1ubuntu0.2 \
+      zlib1g-dev=1:1.3.dfsg-3.1ubuntu2.1 \
  && printf '%s\n' \
       '013ec4c2fa3373840f20b202a55b62b66ae450b9e969d5e943001a43a1aec5cc  bsdextrautils_2.39.3-9ubuntu6.5_amd64.deb' \
       '015b65ef176021c1846ec8b6152167d5d266c1949ec30ee3367e95fa2b2ead27  tar_1.35+dfsg-3build1_amd64.deb' \
+      '023cbe9dbf0af87f10e54e342c67571874e412b9950d89c6cd7b010be2e67c3c  zlib1g-dev_1.3.dfsg-3.1ubuntu2.1_amd64.deb' \
       '02f2ca4183ea0578c6bbc0849669f0ea8749d254ed48738055a8695fb10ec93a  libxml2-dev_2.9.14+dfsg-1.3ubuntu3.7_amd64.deb' \
       '099bb129f543adc4c14203334b0fa0a909f8bf038c4d56bc9cc7c774ebf78f87  git_2.43.0-1ubuntu7.3_amd64.deb' \
       '0e0bb8b25153ed1c44ab92bc219eed469fcb5820c5c0bc6454b2fd366a33d3ee  gcc_13.2.0-7ubuntu1_amd64.deb' \
@@ -97,7 +98,6 @@ RUN set -eux \
       '526790098bf711ca4fa21cfdf334acdb9cd8e59d3b5732174ceca8ebc8eba98b  perl-base_5.38.2-3.2ubuntu0.2_amd64.deb' \
       '5338a17b0c7da20280097d5730ab640c8fcc2b4547acdda29361b27675b937c6  gettext_0.21-14ubuntu2_amd64.deb' \
       '5ae9a98e73545002cd891f028859941af2a3c760cb6190e635c7ef36953912de  automake_1.16.5-1.3ubuntu1_all.deb' \
-      '7009959b8a3b77206325026917fb45150ac81bf6139468abc0841d5a29c8619d  libffi-dev_3.4.6-1build1_amd64.deb' \
       '73de311a21e094e29ac01527d2b52226cc87fde0a5b57032902251b426d92c66  bash_5.2.21-2ubuntu4_amd64.deb' \
       '834a58031069d97d7cfb8b2f5bfd5effc69cecf7f30cc362071875f1f8dc1828  pkgconf_1.8.1-2build1_amd64.deb' \
       '925187570891a3b0af6a1423bdc91492a33c231fa39974ed91efb3ae4ce530fc  xz-utils_5.6.1+really5.4.5-1ubuntu0.2_amd64.deb' \
