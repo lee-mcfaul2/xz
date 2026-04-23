@@ -16,7 +16,11 @@
 #     publicly pullable, so pinning `runs-on` alone gives you a label
 #     over a drifting stream. Pinning by container digest gives you an
 #     immutable artifact both CI and an external verifier can run via
-#     `docker run ubuntu@sha256:…`.
+#     `docker run ubuntu@sha256:…`. Note that a cleaner way of doing
+#     this would be to publish a container with all dependencies
+#     installed. It would save alot of lines in this file. But this
+#     way is shown to demonstrate that you don't need to go that far
+#     if you're fine with a messy workflow file. 
 #
 #   - **snapshot.ubuntu.com apt sources at a pinned timestamp.** The
 #     default `archive.ubuntu.com` only hosts the current version of
