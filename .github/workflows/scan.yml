@@ -228,37 +228,54 @@ jobs:
             | sort -u \
             > /tmp/scan/paths.raw.txt
 
-          # Exclude paths that can't be in a Debian package, or
-          # that would waste dpkg -S lookups.
-          grep -vE '^(/tmp/|/proc/|/dev/|/sys/|/run/|/home/|/root/|/var/|/__w/|/github/|\.)' \
-            /tmp/scan/paths.raw.txt \
-            | grep -vE "^${GITHUB_WORKSPACE}" \
+          # Exclude paths that can't be in an apt package or would
+          # waste dpkg -S lookups. The `|| true` on each grep
+          # guards against exit 1 when a filter matches every line
+          # (pipefail-safe; grep's "no match" signal isn't useful
+          # here).
+          { grep -vE '^(/tmp/|/proc/|/dev/|/sys/|/run/|/home/|/root/|/var/|/__w/|/github/|\.)' \
+              /tmp/scan/paths.raw.txt || true; } \
+            | { grep -vE "^${GITHUB_WORKSPACE}" || true; } \
             | sort -u \
             > /tmp/scan/paths.txt
 
           echo "Raw paths: $(wc -l < /tmp/scan/paths.raw.txt)"
           echo "Filtered:  $(wc -l < /tmp/scan/paths.txt)"
 
-      - name: Map paths to Debian packages
+      - name: Map paths to apt packages
         run: |
           set -euo pipefail
           # dpkg -S takes a path and prints "pkg[,pkg]: /path".
-          # Pipe the filtered paths in; drop any that aren't
-          # owned by a package (dpkg prints to stderr for those).
+          # Many traced paths won't belong to any package (ld.so
+          # cache, kernel interfaces, compiler-generated temporaries,
+          # etc.) — dpkg exits 1 for those, which propagates through
+          # xargs as exit code 123 and, under pipefail, kills the
+          # step. That's the normal case, not an error. The command
+          # group below swallows xargs's non-zero exit so the
+          # pipeline only fails if a later stage fails.
           #
           # xargs -L 100 so we don't blow the argv limit on
           # projects with huge build trees.
-          xargs -a /tmp/scan/paths.txt -L 100 dpkg -S 2>/dev/null \
+          { xargs -a /tmp/scan/paths.txt -L 100 dpkg -S 2>/dev/null || true; } \
             | awk -F: '{print $1}' \
             | tr ',' '\n' \
             | sed 's/^ *//;s/ *$//' \
-            | grep -v '^$' \
+            | { grep -v '^$' || true; } \
             | sort -u \
             > /tmp/scan/packages.txt
 
           # Strip any architecture suffix (pkg:amd64 -> pkg).
           sed -i 's/:.*$//' /tmp/scan/packages.txt
           sort -u -o /tmp/scan/packages.txt /tmp/scan/packages.txt
+
+          if [ ! -s /tmp/scan/packages.txt ]; then
+            echo "ERROR: zero packages mapped from $(wc -l < /tmp/scan/paths.txt) paths."
+            echo "This usually means dpkg -S is missing or /tmp/scan/paths.txt"
+            echo "contains only non-packaged paths. Inspect the raw trace at"
+            echo "/tmp/scan/trace.log and the filtered paths at /tmp/scan/paths.txt"
+            echo "to confirm."
+            exit 1
+          fi
 
           echo "Packages in scope: $(wc -l < /tmp/scan/packages.txt)"
           cat /tmp/scan/packages.txt
