@@ -72,6 +72,12 @@ jobs:
       # GITHUB_TOKEN contents:write is sufficient (no PAT / no
       # workflows:write scope needed).
       contents: write
+      # Needed to dispatch build-container.yml via workflow_dispatch
+      # after committing a new Dockerfile. GitHub does not fire the
+      # usual push-triggered workflows for commits made with the
+      # default GITHUB_TOKEN (anti-recursion guard), so we have to
+      # kick off build-container explicitly.
+      actions: write
 
     env:
       # The snapshot timestamp controls which version of every
@@ -259,32 +265,49 @@ jobs:
           # step. That's the normal case, not an error. The command
           # group below swallows xargs's non-zero exit so the
           # pipeline only fails if a later stage fails.
-          #
-          # xargs -L 100 so we don't blow the argv limit on
-          # projects with huge build trees.
           { xargs -a /tmp/scan/paths.txt -L 100 dpkg -S 2>/dev/null || true; } \
             | awk -F: '{print $1}' \
             | tr ',' '\n' \
             | sed 's/^ *//;s/ *$//' \
             | { grep -v '^$' || true; } \
             | sort -u \
-            > /tmp/scan/packages.txt
+            > /tmp/scan/direct-packages.txt
 
           # Strip any architecture suffix (pkg:amd64 -> pkg).
-          sed -i 's/:.*$//' /tmp/scan/packages.txt
-          sort -u -o /tmp/scan/packages.txt /tmp/scan/packages.txt
+          sed -i 's/:.*$//' /tmp/scan/direct-packages.txt
+          sort -u -o /tmp/scan/direct-packages.txt /tmp/scan/direct-packages.txt
 
-          if [ ! -s /tmp/scan/packages.txt ]; then
+          if [ ! -s /tmp/scan/direct-packages.txt ]; then
             echo "ERROR: zero packages mapped from $(wc -l < /tmp/scan/paths.txt) paths."
-            echo "This usually means dpkg -S is missing or /tmp/scan/paths.txt"
-            echo "contains only non-packaged paths. Inspect the raw trace at"
-            echo "/tmp/scan/trace.log and the filtered paths at /tmp/scan/paths.txt"
-            echo "to confirm."
             exit 1
           fi
 
-          echo "Packages in scope: $(wc -l < /tmp/scan/packages.txt)"
-          cat /tmp/scan/packages.txt
+          echo "Direct packages (from trace): $(wc -l < /tmp/scan/direct-packages.txt)"
+
+          # Expand to the full transitive dependency closure. Our
+          # trace only captures files the build actually opens, but
+          # the produced Dockerfile uses dpkg -i, which refuses to
+          # configure a package unless its Depends and Pre-Depends
+          # are satisfied. Runtime libs loaded via ld-linux often
+          # don't appear in strace (libisl, libmpfr, libmpc for
+          # cpp-13; binutils-common for binutils; etc.) — apt knows
+          # about them because they're declared in control files.
+          #
+          # apt-cache depends --recurse expands to the closure using
+          # the Packages index alone; the --no-* flags strip
+          # relationship types we don't need to install.
+          apt-cache depends --recurse \
+              --no-recommends --no-suggests \
+              --no-conflicts --no-breaks \
+              --no-replaces --no-enhances \
+              $(cat /tmp/scan/direct-packages.txt) \
+            | grep -E '^\S' \
+            | sort -u \
+            > /tmp/scan/packages.txt
+
+          echo "Full transitive closure: $(wc -l < /tmp/scan/packages.txt)"
+          echo "Added by recursion:"
+          comm -23 /tmp/scan/packages.txt /tmp/scan/direct-packages.txt
 
       - name: Resolve versions and SHA256s from snapshot
         run: |
@@ -455,12 +478,14 @@ jobs:
           head -40 Dockerfile.new
 
       - name: Commit Dockerfile if changed
+        id: commit
         run: |
           set -euo pipefail
           cd "${GITHUB_WORKSPACE}"
           if [ -f Dockerfile ] && cmp -s Dockerfile Dockerfile.new; then
             echo "Dockerfile is unchanged — nothing to commit."
             rm -f Dockerfile.new
+            echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
           mv Dockerfile.new Dockerfile
@@ -475,6 +500,7 @@ jobs:
 
           if git diff --cached --quiet; then
             echo "No diff after staging — nothing to commit."
+            echo "changed=false" >> "$GITHUB_OUTPUT"
             exit 0
           fi
 
@@ -482,3 +508,17 @@ jobs:
             -m 'Regenerate Dockerfile via slsa-autotools scan' \
             -m "Pinned to snapshot.ubuntu.com at ${SNAPSHOT_TS}. Every package pinned by version and SHA256."
           git push origin HEAD
+          echo "changed=true" >> "$GITHUB_OUTPUT"
+
+      - name: Dispatch build-container workflow
+        # Explicit workflow_dispatch because the commit above was
+        # made with the default GITHUB_TOKEN, which does not fire
+        # the usual push-triggered workflows (GitHub's anti-
+        # recursion guard). Only dispatched if the Dockerfile
+        # actually changed.
+        if: steps.commit.outputs.changed == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh workflow run build-container.yml --ref "${GITHUB_REF_NAME}"
+          echo "Dispatched build-container.yml on ${GITHUB_REF_NAME}"
