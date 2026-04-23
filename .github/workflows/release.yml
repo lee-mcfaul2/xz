@@ -249,12 +249,29 @@ jobs:
         id: meta
         run: |
           set -eu
+          # Two distinct concepts, historically conflated:
+          #   VERSION     — the git tag with the leading `v` stripped.
+          #                 Used for the release title and notes only,
+          #                 so demo tags like `v5.8.3-demo1` read
+          #                 correctly in the GitHub UI.
+          #   PACKAGE_VER — the canonical package version that
+          #                 configure.ac / AC_INIT reads from
+          #                 src/liblzma/api/lzma/version.h via
+          #                 build-aux/version.sh. This is the name
+          #                 `make distdir` uses for the staging
+          #                 directory and therefore what every
+          #                 tarball / zip / 7z file is named after.
+          # File paths must use PACKAGE_VER; human labels use VERSION.
           VERSION="${GITHUB_REF_NAME#v}"
+          PACKAGE_VER=$(sh build-aux/version.sh)
           # Timestamp of the commit pointed to by the tag — deterministic
           # across reruns and independent of when CI happens to execute.
           SDE=$(git log -1 --format=%ct "${GITHUB_REF_NAME}")
-          echo "version=${VERSION}"      >> "$GITHUB_OUTPUT"
-          echo "sde=${SDE}"              >> "$GITHUB_OUTPUT"
+          {
+            echo "version=${VERSION}"
+            echo "package_ver=${PACKAGE_VER}"
+            echo "sde=${SDE}"
+          } >> "$GITHUB_OUTPUT"
           echo "SOURCE_DATE_EPOCH=${SDE}" >> "$GITHUB_ENV"
 
       - name: Validate liblzma filter map
@@ -280,7 +297,7 @@ jobs:
           LC_COLLATE: 'C'
         run: |
           set -euo pipefail
-          VER=${{ steps.meta.outputs.version }}
+          VER=${{ steps.meta.outputs.package_ver }}
           mkdir build1
           cd build1
           ../configure --quiet
@@ -323,7 +340,7 @@ jobs:
           LC_COLLATE: 'C'
         run: |
           set -euo pipefail
-          VER=${{ steps.meta.outputs.version }}
+          VER=${{ steps.meta.outputs.package_ver }}
           mkdir build2
           cd build2
           ../configure --quiet
@@ -361,7 +378,7 @@ jobs:
       - name: Verify tarball matches build system's declared manifest
         run: |
           set -euo pipefail
-          VER=${{ steps.meta.outputs.version }}
+          VER=${{ steps.meta.outputs.package_ver }}
           MIN_SIZE=524288   # 512 KB; real xz-5.8.3.tar.xz is ~2.6 MB
           for pass in pass1 pass2; do
             TB="artifacts/${pass}/xz-${VER}.tar.xz"
@@ -389,10 +406,10 @@ jobs:
           sha256sum pass1/* pass2/*
           # Compare pass1 vs pass2 byte-for-byte. Any mismatch here means
           # the build still has a non-deterministic input — do NOT publish.
-          diff -q pass1/xz-${{ steps.meta.outputs.version }}.tar.gz \
-                  pass2/xz-${{ steps.meta.outputs.version }}.tar.gz
-          diff -q pass1/xz-${{ steps.meta.outputs.version }}.tar.xz \
-                  pass2/xz-${{ steps.meta.outputs.version }}.tar.xz
+          diff -q pass1/xz-${{ steps.meta.outputs.package_ver }}.tar.gz \
+                  pass2/xz-${{ steps.meta.outputs.package_ver }}.tar.gz
+          diff -q pass1/xz-${{ steps.meta.outputs.package_ver }}.tar.xz \
+                  pass2/xz-${{ steps.meta.outputs.package_ver }}.tar.xz
           echo "Reproducibility verified: both independent builds match."
 
       # Diagnostic step — runs only when the verify step above has failed.
@@ -404,7 +421,7 @@ jobs:
         if: ${{ failure() }}
         run: |
           set -u
-          VER=${{ steps.meta.outputs.version }}
+          VER=${{ steps.meta.outputs.package_ver }}
           mkdir -p diag
           echo "=== sha256 of shipped .tar.xz ==="
           sha256sum artifacts/pass1/xz-${VER}.tar.xz \
@@ -434,19 +451,19 @@ jobs:
         run: |
           set -eu
           mkdir -p release
-          cp artifacts/pass1/xz-${{ steps.meta.outputs.version }}.tar.gz release/
-          cp artifacts/pass1/xz-${{ steps.meta.outputs.version }}.tar.xz release/
+          cp artifacts/pass1/xz-${{ steps.meta.outputs.package_ver }}.tar.gz release/
+          cp artifacts/pass1/xz-${{ steps.meta.outputs.package_ver }}.tar.xz release/
           cd release
-          sha256sum xz-${{ steps.meta.outputs.version }}.tar.gz \
-                    xz-${{ steps.meta.outputs.version }}.tar.xz \
+          sha256sum xz-${{ steps.meta.outputs.package_ver }}.tar.gz \
+                    xz-${{ steps.meta.outputs.package_ver }}.tar.xz \
                     > SHA256SUMS
 
       - name: Generate SLSA build provenance attestation
         uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
         with:
           subject-path: |
-            release/xz-${{ steps.meta.outputs.version }}.tar.gz
-            release/xz-${{ steps.meta.outputs.version }}.tar.xz
+            release/xz-${{ steps.meta.outputs.package_ver }}.tar.gz
+            release/xz-${{ steps.meta.outputs.package_ver }}.tar.xz
 
       # Complementary to the SLSA attestation: a raw-artifact signature
       # produced by cosign sign-blob, packaged as a .sigstore bundle
@@ -461,7 +478,7 @@ jobs:
           COSIGN_YES: 'true'
         run: |
           set -euo pipefail
-          VER=${{ steps.meta.outputs.version }}
+          VER=${{ steps.meta.outputs.package_ver }}
           for f in "release/xz-${VER}.tar.gz" "release/xz-${VER}.tar.xz"; do
             cosign sign-blob \
               --bundle "${f}.sigstore" \
@@ -477,10 +494,10 @@ jobs:
         with:
           name: source-artifacts
           path: |
-            release/xz-${{ steps.meta.outputs.version }}.tar.gz
-            release/xz-${{ steps.meta.outputs.version }}.tar.xz
-            release/xz-${{ steps.meta.outputs.version }}.tar.gz.sigstore
-            release/xz-${{ steps.meta.outputs.version }}.tar.xz.sigstore
+            release/xz-${{ steps.meta.outputs.package_ver }}.tar.gz
+            release/xz-${{ steps.meta.outputs.package_ver }}.tar.xz
+            release/xz-${{ steps.meta.outputs.package_ver }}.tar.gz.sigstore
+            release/xz-${{ steps.meta.outputs.package_ver }}.tar.xz.sigstore
           if-no-files-found: error
           retention-days: 1
 
@@ -653,7 +670,7 @@ jobs:
           LC_COLLATE: 'C'
         run: |
           set -euo pipefail
-          VER=${{ steps.meta.outputs.version }}
+          VER=${{ steps.meta.outputs.package_ver }}
           mkdir build1
           cd build1
           ../configure --quiet
@@ -682,7 +699,7 @@ jobs:
           LC_COLLATE: 'C'
         run: |
           set -euo pipefail
-          VER=${{ steps.meta.outputs.version }}
+          VER=${{ steps.meta.outputs.package_ver }}
           mkdir build2
           cd build2
           ../configure --quiet
@@ -700,7 +717,7 @@ jobs:
       - name: Verify Windows reproducibility
         run: |
           set -eu
-          VER=${{ steps.meta.outputs.version }}
+          VER=${{ steps.meta.outputs.package_ver }}
           cd artifacts
           sha256sum win-pass1/* win-pass2/*
           diff -q "win-pass1/xz-${VER}-windows.zip" "win-pass2/xz-${VER}-windows.zip"
@@ -711,7 +728,7 @@ jobs:
         if: ${{ failure() }}
         run: |
           set -u
-          VER=${{ steps.meta.outputs.version }}
+          VER=${{ steps.meta.outputs.package_ver }}
           echo "=== sha256 of each pass ==="
           sha256sum artifacts/win-pass1/* artifacts/win-pass2/* || true
           echo
@@ -726,7 +743,7 @@ jobs:
         # truncated archive before it gets signed and published.
         run: |
           set -euo pipefail
-          VER=${{ steps.meta.outputs.version }}
+          VER=${{ steps.meta.outputs.package_ver }}
           ZIP="artifacts/win-pass1/xz-${VER}-windows.zip"
           SEVENZ="artifacts/win-pass1/xz-${VER}-windows.7z"
           ZIP_MIN=524288   # 512 KB; real zip is ~1.1 MB
@@ -747,7 +764,7 @@ jobs:
       - name: Produce release artifacts + checksums
         run: |
           set -eu
-          VER=${{ steps.meta.outputs.version }}
+          VER=${{ steps.meta.outputs.package_ver }}
           mkdir -p release
           cp "artifacts/win-pass1/xz-${VER}-windows.zip" release/
           cp "artifacts/win-pass1/xz-${VER}-windows.7z"  release/
@@ -756,15 +773,15 @@ jobs:
         uses: actions/attest-build-provenance@a2bbfa25375fe432b6a289bc6b6cd05ecd0c4c32 # v4.1.0
         with:
           subject-path: |
-            release/xz-${{ steps.meta.outputs.version }}-windows.zip
-            release/xz-${{ steps.meta.outputs.version }}-windows.7z
+            release/xz-${{ steps.meta.outputs.package_ver }}-windows.zip
+            release/xz-${{ steps.meta.outputs.package_ver }}-windows.7z
 
       - name: Sign Windows artifacts with cosign (sigstore)
         env:
           COSIGN_YES: 'true'
         run: |
           set -euo pipefail
-          VER=${{ steps.meta.outputs.version }}
+          VER=${{ steps.meta.outputs.package_ver }}
           for f in "release/xz-${VER}-windows.zip" "release/xz-${VER}-windows.7z"; do
             cosign sign-blob \
               --bundle "${f}.sigstore" \
@@ -778,10 +795,10 @@ jobs:
         with:
           name: windows-artifacts
           path: |
-            release/xz-${{ steps.meta.outputs.version }}-windows.zip
-            release/xz-${{ steps.meta.outputs.version }}-windows.7z
-            release/xz-${{ steps.meta.outputs.version }}-windows.zip.sigstore
-            release/xz-${{ steps.meta.outputs.version }}-windows.7z.sigstore
+            release/xz-${{ steps.meta.outputs.package_ver }}-windows.zip
+            release/xz-${{ steps.meta.outputs.package_ver }}-windows.7z
+            release/xz-${{ steps.meta.outputs.package_ver }}-windows.zip.sigstore
+            release/xz-${{ steps.meta.outputs.package_ver }}-windows.7z.sigstore
           if-no-files-found: error
           retention-days: 1
 
@@ -807,10 +824,17 @@ jobs:
         id: meta
         run: |
           set -eu
+          # See the source job's meta step for the VERSION vs PACKAGE_VER
+          # distinction. File names are always xz-<PACKAGE_VER>; the
+          # release title / notes use VERSION so demo tags read right.
           VERSION="${GITHUB_REF_NAME#v}"
+          PACKAGE_VER=$(sh build-aux/version.sh)
           SDE=$(git log -1 --format=%ct "${GITHUB_REF_NAME}")
-          echo "version=${VERSION}" >> "$GITHUB_OUTPUT"
-          echo "sde=${SDE}"         >> "$GITHUB_OUTPUT"
+          {
+            echo "version=${VERSION}"
+            echo "package_ver=${PACKAGE_VER}"
+            echo "sde=${SDE}"
+          } >> "$GITHUB_OUTPUT"
 
       - name: Download source artifacts
         uses: actions/download-artifact@d3f86a106a0bac45b974a628896c90dbdf5c8093 # v4
@@ -827,7 +851,7 @@ jobs:
       - name: Build combined SHA256SUMS
         run: |
           set -eu
-          VER=${{ steps.meta.outputs.version }}
+          VER=${{ steps.meta.outputs.package_ver }}
           cd release
           sha256sum \
             "xz-${VER}.tar.gz" \
@@ -840,8 +864,11 @@ jobs:
       - name: Extract release notes from NEWS
         run: |
           set -eu
-          VERSION="${{ steps.meta.outputs.version }}"
-          VERSION_RE=$(printf '%s\n' "$VERSION" | sed 's/\./\\./g')
+          # NEWS section headers use the package version (e.g. "5.8.3 ("),
+          # so demo tags like v5.8.3-demo1 must still look up the 5.8.3
+          # NEWS section.
+          PACKAGE_VER="${{ steps.meta.outputs.package_ver }}"
+          VERSION_RE=$(printf '%s\n' "$PACKAGE_VER" | sed 's/\./\\./g')
           awk "
             /^${VERSION_RE} \(/ { found=1; next }
             found && /^[0-9]/  { exit }
@@ -851,7 +878,7 @@ jobs:
       - name: Append reproducibility attestation to release notes
         run: |
           set -eu
-          VER=${{ steps.meta.outputs.version }}
+          VER=${{ steps.meta.outputs.package_ver }}
           {
             echo ""
             echo "---"
@@ -932,21 +959,24 @@ jobs:
           GH_TOKEN: ${{ github.token }}
         run: |
           set -eu
+          # VERSION (tag-derived) goes in the release title / prerelease
+          # gate; PACKAGE_VER names the actual files on disk.
           VERSION="${{ steps.meta.outputs.version }}"
+          PACKAGE_VER="${{ steps.meta.outputs.package_ver }}"
           PRERELEASE=""
           case "$VERSION" in
-            *alpha*|*beta*) PRERELEASE="--prerelease" ;;
+            *alpha*|*beta*|*demo*|*rc*) PRERELEASE="--prerelease" ;;
           esac
           gh release create "${GITHUB_REF_NAME}" \
             --title "XZ Utils ${VERSION}" \
             --notes-file release_notes.txt \
             ${PRERELEASE} \
-            "release/xz-${VERSION}.tar.gz" \
-            "release/xz-${VERSION}.tar.xz" \
-            "release/xz-${VERSION}.tar.gz.sigstore" \
-            "release/xz-${VERSION}.tar.xz.sigstore" \
-            "release/xz-${VERSION}-windows.zip" \
-            "release/xz-${VERSION}-windows.7z" \
-            "release/xz-${VERSION}-windows.zip.sigstore" \
-            "release/xz-${VERSION}-windows.7z.sigstore" \
+            "release/xz-${PACKAGE_VER}.tar.gz" \
+            "release/xz-${PACKAGE_VER}.tar.xz" \
+            "release/xz-${PACKAGE_VER}.tar.gz.sigstore" \
+            "release/xz-${PACKAGE_VER}.tar.xz.sigstore" \
+            "release/xz-${PACKAGE_VER}-windows.zip" \
+            "release/xz-${PACKAGE_VER}-windows.7z" \
+            "release/xz-${PACKAGE_VER}-windows.zip.sigstore" \
+            "release/xz-${PACKAGE_VER}-windows.7z.sigstore" \
             release/SHA256SUMS
