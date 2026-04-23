@@ -283,33 +283,16 @@ jobs:
       - name: Resolve versions and SHA256s from snapshot
         run: |
           set -euo pipefail
-          # apt caches the snapshot's Packages index under
-          # /var/lib/apt/lists after apt-get update. That index is
-          # the authoritative source of (Version, SHA256) pairs
-          # for every .deb the snapshot can serve.
-          #
-          # apt may cache the index compressed (gz/xz/lz4)
-          # depending on version and config. Decompress any
-          # compressed variants to uncompressed siblings so the
-          # awk search below can scan them linearly.
-          for f in /var/lib/apt/lists/snapshot.ubuntu.com_ubuntu_*_Packages.*; do
-            [ -e "$f" ] || continue
-            target="${f%.*}"
-            [ -f "$target" ] && continue
-            case "$f" in
-              *.gz)  gunzip  -c "$f" > "$target" ;;
-              *.xz)  xz -d   -c "$f" > "$target" ;;
-              *.lz4) lz4cat     "$f" > "$target" 2>/dev/null || true ;;
-              *.bz2) bunzip2 -c "$f" > "$target" ;;
-            esac
-          done
-
-          # Concatenate every uncompressed Packages index across
-          # suites (main, universe, etc.) into one search blob.
-          cat /var/lib/apt/lists/snapshot.ubuntu.com_ubuntu_*_Packages \
-              > /tmp/scan/all-packages.idx 2>/dev/null || true
+          # apt-cache dumpavail emits every available package's full
+          # control record in RFC822 format, including Version,
+          # SHA256, and Filename. It reads apt's caches directly
+          # and doesn't care how the Packages index was stored on
+          # disk (plain, .gz, .xz, .lz4 — apt handles all of them
+          # internally). That's more robust than trying to detect
+          # and decompress every format ourselves.
+          apt-cache dumpavail > /tmp/scan/all-packages.idx
           if [ ! -s /tmp/scan/all-packages.idx ]; then
-            echo "ERROR: could not build combined Packages index"
+            echo "ERROR: apt-cache dumpavail produced no output"
             ls -la /var/lib/apt/lists/ || true
             exit 1
           fi
