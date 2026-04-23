@@ -146,7 +146,6 @@ RUN set -eux \
       libsgmls-perl=1.03ii-38 \
       libsmartcols1=2.39.3-9ubuntu6.5 \
       libssh-4=0.10.6-2ubuntu0.4 \
-      libssl-dev=3.0.13-0ubuntu3.9 \
       libssl3t64=3.0.13-0ubuntu3.9 \
       libstdc++-13-dev=13.3.0-6ubuntu2~24.04.1 \
       libstdc++6=14.2.0-4ubuntu2~24.04.1 \
@@ -278,7 +277,6 @@ RUN set -eux \
       'b5f50d7187fdce267bea28a77c24fcf26de55bec5bc116bd1a81ee85c28cd4a5  libyaml-tiny-perl_1.74-1_all.deb' \
       'b95c172411a7fdae70307cf33a9f5320ba5e056b556454543dd5b679d5ce1c4f  gcc-14-base_14.2.0-4ubuntu2~24.04.1_amd64.deb' \
       'bbf5a155039042634961a61276650631ee47b9e721f91f8dbb731b0bbe046df3  libc6-dev_2.39-0ubuntu8.7_amd64.deb' \
-      'bc43282f9c419cf3d132aa076344d2612081ecd17e7ab5db99537d53f8e10690  libssl-dev_3.0.13-0ubuntu3.9_amd64.deb' \
       'c0ab7426300c645ac84d195134143866bd0d6bd33831df3d63d5ab29994984ca  libsmartcols1_2.39.3-9ubuntu6.5_amd64.deb' \
       'c17e0be76f77a8c15b3217cf9cb58ca63f6cc1974044d2fa4abb33ed7ed7ce1e  perl-modules-5.38_5.38.2-3.2ubuntu0.2_all.deb' \
       'c7535331fbb183c802c3bf4b6b210872dcc12d0421b3212b3c4b940f2c59ed3a  cpp-13_13.3.0-6ubuntu2~24.04.1_amd64.deb' \
