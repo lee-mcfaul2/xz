@@ -29,7 +29,11 @@ name: Build container
 
 on:
   push:
-    branches: [main]
+    # Default branch name is resolved at scaffolding time by the
+    # slsa-autotools init-container script from origin/HEAD on the
+    # target repo — so this works whether the project uses main,
+    # master, trunk, or anything else.
+    branches: [master]
     paths:
       - 'Dockerfile'
       - '.github/workflows/build-container.yml'
