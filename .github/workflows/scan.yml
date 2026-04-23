@@ -45,6 +45,10 @@ name: Scan and pin Dockerfile
 
 on:
   push:
+    # Branches only — a tag push whose commit happens to touch
+    # scan.yml would otherwise fire this workflow in detached HEAD
+    # with no branch to push the regenerated Dockerfile back to.
+    branches: ['**']
     paths:
       - '.github/workflows/scan.yml'
   workflow_dispatch:
@@ -507,7 +511,10 @@ jobs:
           git commit \
             -m 'Regenerate Dockerfile via slsa-autotools scan' \
             -m "Pinned to snapshot.ubuntu.com at ${SNAPSHOT_TS}. Every package pinned by version and SHA256."
-          git push origin HEAD
+          # Fully qualified target ref — actions/checkout always
+          # detaches HEAD, so a bare `git push origin HEAD` has no
+          # branch name to map to on the remote.
+          git push origin "HEAD:${GITHUB_REF}"
           echo "changed=true" >> "$GITHUB_OUTPUT"
 
       - name: Dispatch build-container workflow
