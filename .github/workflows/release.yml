@@ -424,9 +424,14 @@ jobs:
         id: windows
         run: |
           set -eu
+          # Same precedence as scan.yml: executable hook > plain hook >
+          # windows/build.bash convention. windows/build.bash is not
+          # +x in upstream xz and never chmod'd locally.
           if [ -x .slsa-autotools/windows-hook.sh ]; then
             echo "cmd=./.slsa-autotools/windows-hook.sh" >> "$GITHUB_OUTPUT"
-          elif [ -x windows/build.bash ]; then
+          elif [ -f .slsa-autotools/windows-hook.sh ]; then
+            echo "cmd=bash .slsa-autotools/windows-hook.sh" >> "$GITHUB_OUTPUT"
+          elif [ -f windows/build.bash ]; then
             echo "cmd=bash windows/build.bash" >> "$GITHUB_OUTPUT"
           else
             echo "ERROR: Windows job reached without an entry point; hashFiles gate disagrees with detection?"

@@ -142,9 +142,16 @@ jobs:
         id: windows
         run: |
           set -eu
+          # Hook-first, then convention. The hook may be +x with its own
+          # shebang or a plain .sh; accept both. windows/build.bash is
+          # mode 100644 in upstream xz (never chmod'd; invoked as
+          # `bash windows/build.bash` by maintainers), so detect by
+          # existence rather than executability.
           if [ -x .slsa-autotools/windows-hook.sh ]; then
             CMD='./.slsa-autotools/windows-hook.sh'
-          elif [ -x windows/build.bash ]; then
+          elif [ -f .slsa-autotools/windows-hook.sh ]; then
+            CMD='bash .slsa-autotools/windows-hook.sh'
+          elif [ -f windows/build.bash ]; then
             CMD='bash windows/build.bash'
           else
             CMD=''
