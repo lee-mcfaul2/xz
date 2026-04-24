@@ -596,7 +596,28 @@ jobs:
           # Fully qualified target ref — actions/checkout always
           # detaches HEAD, so a bare `git push origin HEAD` has no
           # branch name to map to on the remote.
-          git push origin "HEAD:${GITHUB_REF}"
+          #
+          # Race-tolerant push: another commit may have landed on the
+          # target branch while we were tracing (e.g. a concurrent PR
+          # merge). Refresh the remote ref, rebase our single
+          # Dockerfile commit on top if needed, then push. Retry up to
+          # three times in case the race recurs mid-rebase.
+          for attempt in 1 2 3; do
+            git fetch origin "${GITHUB_REF_NAME}"
+            if ! git merge-base --is-ancestor "origin/${GITHUB_REF_NAME}" HEAD; then
+              echo "Remote ${GITHUB_REF_NAME} advanced (attempt ${attempt}); rebasing."
+              git rebase "origin/${GITHUB_REF_NAME}" \
+                || { echo "Rebase conflict — another commit touched Dockerfile. Aborting."; exit 1; }
+            fi
+            if git push origin "HEAD:${GITHUB_REF}"; then
+              break
+            fi
+            if [ "${attempt}" -eq 3 ]; then
+              echo "Push still rejected after 3 attempts; aborting."
+              exit 1
+            fi
+            echo "Push rejected (attempt ${attempt}); another push beat us. Retrying."
+          done
           echo "changed=true" >> "$GITHUB_OUTPUT"
 
       - name: Dispatch build-container workflow
