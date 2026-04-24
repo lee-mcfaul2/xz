@@ -64,7 +64,7 @@ jobs:
     name: Test before release
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/${{ github.repository }}/builder@sha256:b9bf5383ae53d40dc13481f740c952c9dfd7e0e632009359cc355aa2dfc04387
+      image: ghcr.io/${{ github.repository }}/builder@sha256:18775f737bd0d3eb899932870c3a7abcf988cefc6a0cce6b9761149b29b17ca1
     defaults:
       run:
         shell: bash
@@ -117,7 +117,7 @@ jobs:
     needs: test
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/${{ github.repository }}/builder@sha256:b9bf5383ae53d40dc13481f740c952c9dfd7e0e632009359cc355aa2dfc04387
+      image: ghcr.io/${{ github.repository }}/builder@sha256:18775f737bd0d3eb899932870c3a7abcf988cefc6a0cce6b9761149b29b17ca1
     defaults:
       run:
         shell: bash
@@ -373,7 +373,7 @@ jobs:
     if: hashFiles('windows/build.bash', '.slsa-autotools/windows-hook.sh') != ''
     runs-on: ubuntu-24.04
     container:
-      image: ghcr.io/${{ github.repository }}/builder@sha256:b9bf5383ae53d40dc13481f740c952c9dfd7e0e632009359cc355aa2dfc04387
+      image: ghcr.io/${{ github.repository }}/builder@sha256:18775f737bd0d3eb899932870c3a7abcf988cefc6a0cce6b9761149b29b17ca1
     defaults:
       run:
         shell: bash
@@ -741,7 +741,7 @@ jobs:
             echo "- **Commit:**              \`${GITHUB_SHA}\`"
             echo "- **Tag:**                 \`${GITHUB_REF_NAME}\`"
             echo "- **SOURCE_DATE_EPOCH:**   \`${SDE}\`"
-            echo "- **Builder image:**       \`ghcr.io/${{ github.repository }}/builder@sha256:b9bf5383ae53d40dc13481f740c952c9dfd7e0e632009359cc355aa2dfc04387\`"
+            echo "- **Builder image:**       \`ghcr.io/${{ github.repository }}/builder@sha256:18775f737bd0d3eb899932870c3a7abcf988cefc6a0cce6b9761149b29b17ca1\`"
             echo "- **Workflow:**            \`${{ github.workflow_ref }}\`"
             echo
             echo "### Checksums"
