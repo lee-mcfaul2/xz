@@ -274,11 +274,25 @@ jobs:
           # and concatenated onto the primary log so the downstream
           # path→package mapping picks up mingw/7zip/ghostscript
           # transparently — no second codepath below.
+          #
+          # Windows build scripts (xz's windows/build.bash, and any
+          # hook users write by analogy) expect to run from inside a
+          # populated distdir — the primary BUILD_CMD ran `make dist`
+          # which produces the tarball and removes the distdir after,
+          # so regenerate a fresh distdir and chdir into it before
+          # invoking the windows command. Mirrors what release.yml's
+          # build_windows job does.
           WINDOWS_CMD='${{ steps.windows.outputs.cmd }}'
           if [ -n "${WINDOWS_CMD}" ]; then
-            echo "Tracing Windows build: ${WINDOWS_CMD}"
+            echo "Regenerating distdir for Windows trace..."
+            make -s distdir
+            PACKAGE=$(awk -F' *= *' '$1 == "PACKAGE" {print $2; exit}' Makefile)
+            VERSION=$(awk -F' *= *' '$1 == "VERSION" {print $2; exit}' Makefile)
+            DISTDIR="${PACKAGE}-${VERSION}"
+            [ -d "${DISTDIR}" ] || { echo "ERROR: distdir ${DISTDIR} not found for windows trace"; ls -la; exit 1; }
+            echo "Tracing Windows build from ${DISTDIR}: ${WINDOWS_CMD}"
             strace -f -e trace=openat,execve -o /tmp/scan/trace-windows.log \
-                   bash -c "${WINDOWS_CMD}" \
+                   bash -c "cd '${DISTDIR}' && ${WINDOWS_CMD}" \
               || { echo "Windows build under strace FAILED."; \
                    tail -100 /tmp/scan/trace-windows.log || true; \
                    exit 1; }
