@@ -71,6 +71,12 @@ jobs:
     timeout-minutes: 30
     permissions:
       contents: read
+    # Propagate Windows detection as a job output so downstream jobs can
+    # gate on it. hashFiles() is only valid in step-level if:, not
+    # job-level if:, so we do the detection in a step of this job and
+    # expose the result.
+    outputs:
+      has_windows: ${{ steps.windows.outputs.has_windows }}
     steps:
       - name: Mark workspace safe for git (pre-checkout)
         shell: sh
@@ -79,6 +85,22 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6
         with:
           persist-credentials: false
+
+      - name: Detect Windows build entry point
+        # Same precedence as scan.yml. Result is emitted as a job
+        # output the build_windows job reads via needs.test.outputs.
+        id: windows
+        run: |
+          set -eu
+          if [ -x .slsa-autotools/windows-hook.sh ] \
+              || [ -f .slsa-autotools/windows-hook.sh ] \
+              || [ -f windows/build.bash ]; then
+            echo "has_windows=true"  >> "$GITHUB_OUTPUT"
+            echo "Windows build entry point detected."
+          else
+            echo "has_windows=false" >> "$GITHUB_OUTPUT"
+            echo "No Windows build entry point detected."
+          fi
 
       - name: Bootstrap autotools
         # Same logic as the build job (and scan.yml): project
@@ -360,17 +382,19 @@ jobs:
           retention-days: 1
 
   build_windows:
-    # Runtime-gated: runs only when the repo ships a Windows build
-    # entry point. hashFiles() returns '' when none of the listed
-    # paths exist, non-empty hash otherwise.
+    # Runtime-gated via a job output from `test` rather than
+    # hashFiles() — hashFiles is only valid in step-level if:, not
+    # job-level. Detection happens once in the test job's
+    # "Detect Windows build entry point" step and propagates here.
+    # Detection precedence (same as scan.yml):
     #   - .slsa-autotools/windows-hook.sh   (hook, takes precedence)
     #   - windows/build.bash                (xz convention)
-    # Consequence: repos without a Windows path see a "Skipped"
-    # build_windows in the UI. Cosmetic; publish is gated so a skip
-    # doesn't block the release.
+    # Consequence for repos without a Windows path: build_windows
+    # shows as "Skipped" in the UI. Cosmetic; publish is gated so a
+    # skip doesn't block the release.
     name: Build Windows binaries, verify, sign
     needs: test
-    if: hashFiles('windows/build.bash', '.slsa-autotools/windows-hook.sh') != ''
+    if: needs.test.outputs.has_windows == 'true'
     runs-on: ubuntu-24.04
     container:
       image: ghcr.io/${{ github.repository }}/builder@sha256:18775f737bd0d3eb899932870c3a7abcf988cefc6a0cce6b9761149b29b17ca1
@@ -434,7 +458,7 @@ jobs:
           elif [ -f windows/build.bash ]; then
             echo "cmd=bash windows/build.bash" >> "$GITHUB_OUTPUT"
           else
-            echo "ERROR: Windows job reached without an entry point; hashFiles gate disagrees with detection?"
+            echo "ERROR: Windows job reached without an entry point; needs.test.outputs.has_windows gate disagrees with detection?"
             exit 1
           fi
 
