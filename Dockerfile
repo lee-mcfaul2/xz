@@ -157,7 +157,6 @@ RUN set -eux \
       liblerc4=4.0.0+ds-4ubuntu2 \
       liblsan0=14.2.0-4ubuntu2~24.04.1 \
       liblz4-1=1.9.4-1build1.1 \
-      liblzma-dev=5.6.1+really5.4.5-1ubuntu0.2 \
       liblzma5=5.6.1+really5.4.5-1ubuntu0.2 \
       libmagic-mgc=1:5.45-3build1 \
       libmagic1t64=1:5.45-3build1 \
@@ -429,7 +428,6 @@ RUN set -eux \
       'f0ed0e314a63ae1b7e5403d7e43a26c6e0c0ee69e9a305babcf9c6775607377a  libmagic-mgc_1%3a5.45-3build1_amd64.deb' \
       'f1b9dbfa28c56564f6b544f3757f5f3f4d549ce9962f39e897812c23b0a5d0e7  liblerc4_4.0.0+ds-4ubuntu2_amd64.deb' \
       'f2bfd3f8f00413d5f1f04fc723063803c56ac0f1e0efae3bc41f2d7276972ec3  libacl1_2.3.2-1build1.1_amd64.deb' \
-      'f32c9c79c0d9eb88a3267fea803b4ae9f295c9e2a5cc69f030a298d8a238fa79  liblzma-dev_5.6.1+really5.4.5-1ubuntu0.2_amd64.deb' \
       'f3857b0863ac5cfd4263e9bf6cfb1d4be88d5321e4070d5bc2b62b0949e6c86f  libbsd0_0.12.1-1build1.1_amd64.deb' \
       'f68b5b23bc8a1688fb787d2aed7e2cdf895a73022f6a5025e183162dac4500b2  libjpeg-turbo8_2.1.5-2ubuntu2_amd64.deb' \
       'f6937fd8a77e83001dcfd3857d5a5cfbd4caaeb297c7fdb71ec50514843e48af  libfreetype6_2.13.2+dfsg-1ubuntu0.1_amd64.deb' \
