@@ -116,7 +116,6 @@ RUN set -eux \
       libdeflate0=1.19-1build1.1 \
       liberror-perl=0.17029-2 \
       libexpat1=2.6.1-2ubuntu0.4 \
-      libffi-dev=3.4.6-1build1 \
       libffi8=3.4.6-1build1 \
       libfontconfig1=2.15.0-1.1ubuntu2 \
       libfontenc1=1:1.1.8-1build1 \
@@ -187,6 +186,7 @@ RUN set -eux \
       libsm6=2:1.2.3-1build3 \
       libsmartcols1=2.39.3-9ubuntu6.5 \
       libssh-4=0.10.6-2ubuntu0.4 \
+      libssl-dev=3.0.13-0ubuntu3.9 \
       libssl3t64=3.0.13-0ubuntu3.9 \
       libstdc++-13-dev=13.3.0-6ubuntu2~24.04.1 \
       libstdc++6=14.2.0-4ubuntu2~24.04.1 \
@@ -326,7 +326,6 @@ RUN set -eux \
       '6abaa6c26f46ef17764c4a753e0e84de1cdadde5634fd2987621fdc617988d19  libselinux1_3.5-2ubuntu2.1_amd64.deb' \
       '6c4e125792e09d55670a132f1c38b740068b3c7b6b0c6a74abe6c3da981f3a61  perl_5.38.2-3.2ubuntu0.2_amd64.deb' \
       '6d97fbc1972633083f08f51ccab433606c97bbceb897c631c66495117ca3406f  libnettle8t64_3.9.1-2.2build1.1_amd64.deb' \
-      '7009959b8a3b77206325026917fb45150ac81bf6139468abc0841d5a29c8619d  libffi-dev_3.4.6-1build1_amd64.deb' \
       '7074b6a2f6367a10d280c00a1cb02e74277709180bab4f2491a2f355ab2d6c20  zlib1g_1%3a1.3.dfsg-3.1ubuntu2.1_amd64.deb' \
       '71a30882e150a73905baa895ed0b0acaea0e3739346cbfa3934bcc3ad3172628  libperl5.38t64_5.38.2-3.2ubuntu0.2_amd64.deb' \
       '72093fb456864db55f1352bfa5e952a94f7abaff64e71dff1fbf001db1984564  libsframe1_2.42-4ubuntu2.10_amd64.deb' \
@@ -387,6 +386,7 @@ RUN set -eux \
       'b95c172411a7fdae70307cf33a9f5320ba5e056b556454543dd5b679d5ce1c4f  gcc-14-base_14.2.0-4ubuntu2~24.04.1_amd64.deb' \
       'bb390da466a7461bfc87aa3e6b7cd145dae84af3e26bf437f2c0c218ba226294  debconf_1.5.86ubuntu1_all.deb' \
       'bbf5a155039042634961a61276650631ee47b9e721f91f8dbb731b0bbe046df3  libc6-dev_2.39-0ubuntu8.7_amd64.deb' \
+      'bc43282f9c419cf3d132aa076344d2612081ecd17e7ab5db99537d53f8e10690  libssl-dev_3.0.13-0ubuntu3.9_amd64.deb' \
       'bcd336fce11ce2a45f34d0f95e6980af22529f22147e8f98c156e5cee8ee42bb  libxdmcp6_1%3a1.1.3-0ubuntu6_amd64.deb' \
       'c0ab7426300c645ac84d195134143866bd0d6bd33831df3d63d5ab29994984ca  libsmartcols1_2.39.3-9ubuntu6.5_amd64.deb' \
       'c17e0be76f77a8c15b3217cf9cb58ca63f6cc1974044d2fa4abb33ed7ed7ce1e  perl-modules-5.38_5.38.2-3.2ubuntu0.2_all.deb' \
