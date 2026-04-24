@@ -157,6 +157,7 @@ RUN set -eux \
       liblerc4=4.0.0+ds-4ubuntu2 \
       liblsan0=14.2.0-4ubuntu2~24.04.1 \
       liblz4-1=1.9.4-1build1.1 \
+      liblzma-dev=5.6.1+really5.4.5-1ubuntu0.2 \
       liblzma5=5.6.1+really5.4.5-1ubuntu0.2 \
       libmagic-mgc=1:5.45-3build1 \
       libmagic1t64=1:5.45-3build1 \
@@ -186,7 +187,6 @@ RUN set -eux \
       libsm6=2:1.2.3-1build3 \
       libsmartcols1=2.39.3-9ubuntu6.5 \
       libssh-4=0.10.6-2ubuntu0.4 \
-      libssl-dev=3.0.13-0ubuntu3.9 \
       libssl3t64=3.0.13-0ubuntu3.9 \
       libstdc++-13-dev=13.3.0-6ubuntu2~24.04.1 \
       libstdc++6=14.2.0-4ubuntu2~24.04.1 \
@@ -386,7 +386,6 @@ RUN set -eux \
       'b95c172411a7fdae70307cf33a9f5320ba5e056b556454543dd5b679d5ce1c4f  gcc-14-base_14.2.0-4ubuntu2~24.04.1_amd64.deb' \
       'bb390da466a7461bfc87aa3e6b7cd145dae84af3e26bf437f2c0c218ba226294  debconf_1.5.86ubuntu1_all.deb' \
       'bbf5a155039042634961a61276650631ee47b9e721f91f8dbb731b0bbe046df3  libc6-dev_2.39-0ubuntu8.7_amd64.deb' \
-      'bc43282f9c419cf3d132aa076344d2612081ecd17e7ab5db99537d53f8e10690  libssl-dev_3.0.13-0ubuntu3.9_amd64.deb' \
       'bcd336fce11ce2a45f34d0f95e6980af22529f22147e8f98c156e5cee8ee42bb  libxdmcp6_1%3a1.1.3-0ubuntu6_amd64.deb' \
       'c0ab7426300c645ac84d195134143866bd0d6bd33831df3d63d5ab29994984ca  libsmartcols1_2.39.3-9ubuntu6.5_amd64.deb' \
       'c17e0be76f77a8c15b3217cf9cb58ca63f6cc1974044d2fa4abb33ed7ed7ce1e  perl-modules-5.38_5.38.2-3.2ubuntu0.2_all.deb' \
@@ -430,6 +429,7 @@ RUN set -eux \
       'f0ed0e314a63ae1b7e5403d7e43a26c6e0c0ee69e9a305babcf9c6775607377a  libmagic-mgc_1%3a5.45-3build1_amd64.deb' \
       'f1b9dbfa28c56564f6b544f3757f5f3f4d549ce9962f39e897812c23b0a5d0e7  liblerc4_4.0.0+ds-4ubuntu2_amd64.deb' \
       'f2bfd3f8f00413d5f1f04fc723063803c56ac0f1e0efae3bc41f2d7276972ec3  libacl1_2.3.2-1build1.1_amd64.deb' \
+      'f32c9c79c0d9eb88a3267fea803b4ae9f295c9e2a5cc69f030a298d8a238fa79  liblzma-dev_5.6.1+really5.4.5-1ubuntu0.2_amd64.deb' \
       'f3857b0863ac5cfd4263e9bf6cfb1d4be88d5321e4070d5bc2b62b0949e6c86f  libbsd0_0.12.1-1build1.1_amd64.deb' \
       'f68b5b23bc8a1688fb787d2aed7e2cdf895a73022f6a5025e183162dac4500b2  libjpeg-turbo8_2.1.5-2ubuntu2_amd64.deb' \
       'f6937fd8a77e83001dcfd3857d5a5cfbd4caaeb297c7fdb71ec50514843e48af  libfreetype6_2.13.2+dfsg-1ubuntu0.1_amd64.deb' \
