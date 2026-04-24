@@ -38,6 +38,7 @@ RUN set -eu \
 RUN set -eux \
  && mkdir -p /tmp/debs && cd /tmp/debs \
  && apt-get download \
+      7zip=23.01+dfsg-11 \
       autoconf=2.71-3 \
       automake=1:1.16.5-1.3ubuntu1 \
       autopoint=0.21-14ubuntu2 \
@@ -46,6 +47,8 @@ RUN set -eux \
       bash=5.2.21-2ubuntu4 \
       binutils=2.42-4ubuntu2.10 \
       binutils-common=2.42-4ubuntu2.10 \
+      binutils-mingw-w64-i686=2.41.90.20240122-1ubuntu1+11.4 \
+      binutils-mingw-w64-x86-64=2.41.90.20240122-1ubuntu1+11.4 \
       binutils-x86-64-linux-gnu=2.42-4ubuntu2.10 \
       bsdextrautils=2.39.3-9ubuntu6.5 \
       coreutils=9.4-3ubuntu6.2 \
@@ -54,19 +57,28 @@ RUN set -eux \
       cpp-13-x86-64-linux-gnu=13.3.0-6ubuntu2~24.04.1 \
       cpp-x86-64-linux-gnu=4:13.2.0-7ubuntu1 \
       dash=0.5.12-6ubuntu5 \
+      debconf=1.5.86ubuntu1 \
       debianutils=5.17build1 \
       diffutils=1:3.10-1build1 \
       dpkg=1.22.6ubuntu6.5 \
       file=1:5.45-3build1 \
       findutils=4.9.0-5build1 \
+      fontconfig-config=2.15.0-1.1ubuntu2 \
+      fonts-urw-base35=20200910-8 \
       gcc=4:13.2.0-7ubuntu1 \
       gcc-13=13.3.0-6ubuntu2~24.04.1 \
       gcc-13-base=13.3.0-6ubuntu2~24.04.1 \
       gcc-13-x86-64-linux-gnu=13.3.0-6ubuntu2~24.04.1 \
       gcc-14-base=14.2.0-4ubuntu2~24.04.1 \
+      gcc-mingw-w64-base=13.2.0-6ubuntu1+26.1 \
+      gcc-mingw-w64-i686-win32=13.2.0-6ubuntu1+26.1 \
+      gcc-mingw-w64-i686-win32-runtime=13.2.0-6ubuntu1+26.1 \
+      gcc-mingw-w64-x86-64-win32=13.2.0-6ubuntu1+26.1 \
+      gcc-mingw-w64-x86-64-win32-runtime=13.2.0-6ubuntu1+26.1 \
       gcc-x86-64-linux-gnu=4:13.2.0-7ubuntu1 \
       gettext=0.21-14ubuntu2 \
       gettext-base=0.21-14ubuntu2 \
+      ghostscript=10.02.1~dfsg1-0ubuntu7.8 \
       git=1:2.43.0-1ubuntu7.3 \
       git-man=1:2.43.0-1ubuntu7.3 \
       grep=3.11-4build1 \
@@ -78,6 +90,9 @@ RUN set -eux \
       libasan8=14.2.0-4ubuntu2~24.04.1 \
       libatomic1=14.2.0-4ubuntu2~24.04.1 \
       libattr1=1:2.5.2-1build1.1 \
+      libavahi-client3=0.8-13ubuntu6.1 \
+      libavahi-common-data=0.8-13ubuntu6.1 \
+      libavahi-common3=0.8-13ubuntu6.1 \
       libbinutils=2.42-4ubuntu2.10 \
       libbrotli1=1.1.0-2build2 \
       libbsd0=0.12.1-1build1.1 \
@@ -92,36 +107,57 @@ RUN set -eux \
       libcrypt1=1:4.4.36-4build1 \
       libctf-nobfd0=2.42-4ubuntu2.10 \
       libctf0=2.42-4ubuntu2.10 \
+      libcups2t64=2.4.7-1.2ubuntu7.9 \
       libcurl3t64-gnutls=8.5.0-2ubuntu10.8 \
       libcurl4-openssl-dev=8.5.0-2ubuntu10.8 \
       libcurl4t64=8.5.0-2ubuntu10.8 \
       libdb5.3t64=5.3.28+dfsg2-7 \
+      libdbus-1-3=1.14.10-4ubuntu4.1 \
+      libdeflate0=1.19-1build1.1 \
       liberror-perl=0.17029-2 \
       libexpat1=2.6.1-2ubuntu0.4 \
+      libffi-dev=3.4.6-1build1 \
       libffi8=3.4.6-1build1 \
+      libfontconfig1=2.15.0-1.1ubuntu2 \
+      libfontenc1=1:1.1.8-1build1 \
+      libfreetype6=2.13.2+dfsg-1ubuntu0.1 \
       libgcc-13-dev=13.3.0-6ubuntu2~24.04.1 \
       libgcc-s1=14.2.0-4ubuntu2~24.04.1 \
+      libgcrypt20=1.10.3-2build1 \
       libgdbm-compat4t64=1.23-5.1build1 \
       libgdbm6t64=1.23-5.1build1 \
       libgmp10=2:6.3.0+dfsg-2ubuntu6.1 \
       libgnutls30t64=3.8.3-1.1ubuntu3.5 \
       libgomp1=14.2.0-4ubuntu2~24.04.1 \
+      libgpg-error0=1.47-3build2.1 \
       libgprofng0=2.42-4ubuntu2.10 \
+      libgs-common=10.02.1~dfsg1-0ubuntu7.8 \
+      libgs10=10.02.1~dfsg1-0ubuntu7.8 \
+      libgs10-common=10.02.1~dfsg1-0ubuntu7.8 \
       libgssapi-krb5-2=1.20.1-6ubuntu2.6 \
       libhogweed6t64=3.9.1-2.2build1.1 \
       libhwasan0=14.2.0-4ubuntu2~24.04.1 \
+      libice6=2:1.0.10-1build3 \
       libicu-dev=74.2-1ubuntu3.1 \
       libicu74=74.2-1ubuntu3.1 \
+      libidn12=1.42-1build1 \
       libidn2-0=2.3.7-2build1.1 \
+      libijs-0.35=0.35-15.1build1 \
       libisl23=0.26-3build1.1 \
       libitm1=14.2.0-4ubuntu2~24.04.1 \
       libjansson4=2.14-2build2 \
+      libjbig0=2.1-6.1ubuntu2 \
+      libjbig2dec0=0.20-1build3 \
+      libjpeg-turbo8=2.1.5-2ubuntu2 \
+      libjpeg8=8c-2ubuntu11 \
       libk5crypto3=1.20.1-6ubuntu2.6 \
       libkeyutils1=1.6.3-3build1 \
       libkrb5-3=1.20.1-6ubuntu2.6 \
       libkrb5support0=1.20.1-6ubuntu2.6 \
       libldap2=2.6.10+dfsg-0ubuntu0.24.04.1 \
+      liblerc4=4.0.0+ds-4ubuntu2 \
       liblsan0=14.2.0-4ubuntu2~24.04.1 \
+      liblz4-1=1.9.4-1build1.1 \
       liblzma5=5.6.1+really5.4.5-1ubuntu0.2 \
       libmagic-mgc=1:5.45-3build1 \
       libmagic1t64=1:5.45-3build1 \
@@ -130,11 +166,14 @@ RUN set -eux \
       libmpfr6=4.2.1-1build1.1 \
       libnettle8t64=3.9.1-2.2build1.1 \
       libnghttp2-14=1.59.0-1ubuntu0.2 \
+      libopenjp2-7=2.5.0-2ubuntu0.4 \
       libosp5=1.5.2-15ubuntu2 \
       libp11-kit0=0.25.3-4ubuntu2.1 \
+      libpaper1=1.1.29build1 \
       libpcre2-8-0=10.42-4ubuntu2.1 \
       libperl5.38t64=5.38.2-3.2ubuntu0.2 \
       libpkgconf3=1.8.1-2build1 \
+      libpng16-16t64=1.6.43-5ubuntu0.5 \
       libpod-parser-perl=1.67-1 \
       libpsl5t64=0.21.2-1.1build1 \
       libquadmath0=14.2.0-4ubuntu2~24.04.1 \
@@ -144,30 +183,43 @@ RUN set -eux \
       libselinux1=3.5-2ubuntu2.1 \
       libsframe1=2.42-4ubuntu2.10 \
       libsgmls-perl=1.03ii-38 \
+      libsharpyuv0=1.3.2-0.4build3 \
+      libsm6=2:1.2.3-1build3 \
       libsmartcols1=2.39.3-9ubuntu6.5 \
-      libsqlite3-0=3.45.1-1ubuntu2.5 \
-      libsqlite3-dev=3.45.1-1ubuntu2.5 \
       libssh-4=0.10.6-2ubuntu0.4 \
       libssl3t64=3.0.13-0ubuntu3.9 \
       libstdc++-13-dev=13.3.0-6ubuntu2~24.04.1 \
       libstdc++6=14.2.0-4ubuntu2~24.04.1 \
       libsyntax-keyword-try-perl=0.29-1build3 \
+      libsystemd0=255.4-1ubuntu8.15 \
       libtasn1-6=4.19.0-3ubuntu0.24.04.2 \
+      libtiff6=4.5.1+git230720-4ubuntu2.5 \
       libtinfo6=6.4+20240113-1ubuntu2 \
       libtool=2.4.7-7build1 \
       libtsan2=14.2.0-4ubuntu2~24.04.1 \
       libubsan1=14.2.0-4ubuntu2~24.04.1 \
       libuchardet0=0.0.8-1build1 \
       libunistring5=1.1-2build1.1 \
+      libuuid1=2.39.3-9ubuntu6.5 \
+      libwebp7=1.3.2-0.4build3 \
+      libx11-6=2:1.8.7-1build1 \
+      libx11-data=2:1.8.7-1build1 \
+      libxau6=1:1.0.9-1build6 \
+      libxcb1=1.15-1ubuntu2 \
+      libxdmcp6=1:1.1.3-0ubuntu6 \
       libxml2=2.9.14+dfsg-1.3ubuntu3.7 \
       libxml2-dev=2.9.14+dfsg-1.3ubuntu3.7 \
       libxs-parse-keyword-perl=0.39-1build3 \
+      libxt6t64=1:1.2.1-1.2build1 \
       libyaml-tiny-perl=1.74-1 \
       libzstd1=1.5.5+dfsg2-2build1.1 \
       linux-libc-dev=6.8.0-110.110 \
       m4=1.4.19-4build1 \
       make=4.3-4.1build2 \
       mawk=1.3.4.20240123-1build1 \
+      mingw-w64-common=11.0.1-3build1 \
+      mingw-w64-i686-dev=11.0.1-3build1 \
+      mingw-w64-x86-64-dev=11.0.1-3build1 \
       opensp=1.5.2-15ubuntu2 \
       perl=5.38.2-3.2ubuntu0.2 \
       perl-base=5.38.2-3.2ubuntu0.2 \
@@ -175,23 +227,36 @@ RUN set -eux \
       pkgconf=1.8.1-2build1 \
       pkgconf-bin=1.8.1-2build1 \
       po4a=0.69-1 \
+      poppler-data=0.4.12-1 \
       rpcsvc-proto=1.4.2-0ubuntu7 \
       sed=4.9-2build1 \
+      sensible-utils=0.0.22 \
       sgml-base=1.31 \
+      sysvinit-utils=3.08-6ubuntu3 \
       tar=1.35+dfsg-3build1 \
+      ucf=3.0043+nmu1 \
+      x11-common=1:7.7+23ubuntu3 \
+      xfonts-encodings=1:1.0.5-0ubuntu2 \
+      xfonts-utils=1:7.7+6build3 \
       xz-utils=5.6.1+really5.4.5-1ubuntu0.2 \
       zlib1g=1:1.3.dfsg-3.1ubuntu2.1 \
  && printf '%s\n' \
       '013ec4c2fa3373840f20b202a55b62b66ae450b9e969d5e943001a43a1aec5cc  bsdextrautils_2.39.3-9ubuntu6.5_amd64.deb' \
       '015b65ef176021c1846ec8b6152167d5d266c1949ec30ee3367e95fa2b2ead27  tar_1.35+dfsg-3build1_amd64.deb' \
       '015e2637c50f4fe9b00c699c7c1c4ca48b921e46107c6f81c94b7395165a9852  libxs-parse-keyword-perl_0.39-1build3_amd64.deb' \
+      '018480a62907fcca19c6bf2975ae01f5c92c23dee8c3cf7a8355c10bf7d42c6f  mingw-w64-x86-64-dev_11.0.1-3build1_all.deb' \
       '02f2ca4183ea0578c6bbc0849669f0ea8749d254ed48738055a8695fb10ec93a  libxml2-dev_2.9.14+dfsg-1.3ubuntu3.7_amd64.deb' \
+      '03cf5c9c28a5d186fb7f5214e464f831ff28177695cbb61e66083237267a047e  sysvinit-utils_3.08-6ubuntu3_amd64.deb' \
       '064dce00ce94e1fc2d33779cb0071088f4c8aac79e85345f2e78a020f7d14699  libbinutils_2.42-4ubuntu2.10_amd64.deb' \
       '0679f198b0128179e46cdf956fb2022c23c758664c00bc8efa0382d509683a8a  libkeyutils1_1.6.3-3build1_amd64.deb' \
+      '074a760a86213a1286ad60f56394c90885cf45af070626a88c480d90b78c175a  libjbig0_2.1-6.1ubuntu2_amd64.deb' \
+      '074c954a7a01069c3b3db9146911666f6ac75c1277e034eba901ee274554dadc  libpng16-16t64_1.6.43-5ubuntu0.5_amd64.deb' \
       '099bb129f543adc4c14203334b0fa0a909f8bf038c4d56bc9cc7c774ebf78f87  git_1%3a2.43.0-1ubuntu7.3_amd64.deb' \
+      '0c5d57211cac9659e7f4c856f5e1922c4a522fe8bcf5776e9707b2811f965702  libfontenc1_1%3a1.1.8-1build1_amd64.deb' \
       '0cf79113f5d193ce9af2be2ff4b2c3b30dd4e55a0b6c47f7d28f6c849ff3aa60  libjansson4_2.14-2build2_amd64.deb' \
       '0e0bb8b25153ed1c44ab92bc219eed469fcb5820c5c0bc6454b2fd366a33d3ee  gcc_4%3a13.2.0-7ubuntu1_amd64.deb' \
       '0f1b296f6731dc51569350dcb2971629f36e78a21015c73165eddc5af5c978ad  libgssapi-krb5-2_1.20.1-6ubuntu2.6_amd64.deb' \
+      '0f79450d81e64326a862a8645ae1613890e486115101e51e41ca07d929388d87  7zip_23.01+dfsg-11_amd64.deb' \
       '1047a9a57018e18531f76e5b00e226a68554b6f1d147f2a5c1b32518c7b20636  debianutils_5.17build1_amd64.deb' \
       '110a797a57673d3ee497a141cf988199258058c57525799c63194d81822529a0  libpcre2-8-0_10.42-4ubuntu2.1_amd64.deb' \
       '126a5612e652bdc2edee19ae8fe4308db72b5b3b0a5581bf885b44a093baf3e5  libexpat1_2.6.1-2ubuntu0.4_amd64.deb' \
@@ -199,43 +264,69 @@ RUN set -eux \
       '17dae1d6e803d0304e318f451c8abf62cbd5bb2a0068300cdeea77c62075b895  file_1%3a5.45-3build1_amd64.deb' \
       '18d6d74a5c038b458d95ba0c0909e0f086cd50bb9a0fee32697902724fc5645e  libgdbm6t64_1.23-5.1build1_amd64.deb' \
       '1907af6bf33dd8684447c09f216c675d2b8559fadd8ddace29fbf83c6fb2a636  liberror-perl_0.17029-2_all.deb' \
+      '1a34af9cae9fcf9b05b1527c8985b06aad70f4fc546442bdc3d6e5bc70673206  poppler-data_0.4.12-1_all.deb' \
       '1a9c6a5a3a1d4cd24cf9c621a9ea0c093b2c8fe0217d7d25642a7e9677a1b7c8  opensp_1.5.2-15ubuntu2_amd64.deb' \
       '1b7e3c2fc162e8358ca6e5a3fffdb4d0d632f790630323215841bb36a63c0ab8  libgprofng0_2.42-4ubuntu2.10_amd64.deb' \
       '1cd698c64bb1100a505a71894321716d807dc976c26d488b339f0b6289aad2fc  groff-base_1.23.0-3build2_amd64.deb' \
+      '1d27ebc381b499075a28c504be4d7d424c63b6866354736ac7f8d25813860cdf  libsm6_2%3a1.2.3-1build3_amd64.deb' \
       '1e510a15f30208d39edcd840e48f26a77bbca7c417805eeccb1e3f7de198ef29  binutils-x86-64-linux-gnu_2.42-4ubuntu2.10_amd64.deb' \
       '1f13548b1774cd9c70c50b8c3267204a101334a4d2f979338896ba5a4c6f81b8  libsasl2-modules-db_2.1.28+dfsg1-5ubuntu3.1_amd64.deb' \
       '1fca498129dd3510294809d77ee754f72a9de281111200e9b7b9a5adf37faa9f  libitm1_14.2.0-4ubuntu2~24.04.1_amd64.deb' \
       '1fe6a815b56c7b6e9ce4086a363f09444bbd0a0d30e230c453d0b78e44b57a99  make_4.3-4.1build2_amd64.deb' \
       '203d7657b5f54633fba1a9c9b784d556ef83c9f6787b3185ba55a88e07b865a3  libunistring5_1.1-2build1.1_amd64.deb' \
       '2195318cfe68fe16b601913ef7b33c9a900372f57861643fdc9ae6fef84534cd  libhwasan0_14.2.0-4ubuntu2~24.04.1_amd64.deb' \
+      '22cd1e9d9cd58bf8cdf41b2d85fed8a854e0888569f3bf9a3b5f86eee9e4208c  libsystemd0_255.4-1ubuntu8.15_amd64.deb' \
+      '22ef06d2fea7fd74f48e80bf701e8a4e3ebfb24c33639c4739cf25db17cdb8e9  ghostscript_10.02.1~dfsg1-0ubuntu7.8_amd64.deb' \
+      '24b4b1173e21301c22b6951f04268fe6cb76fbc05a6ca84062f0a43a66fd3c31  libjbig2dec0_0.20-1build3_amd64.deb' \
+      '285a8ffd399dca55b949c79d071cd6a74bdd2600abd6614cea2422b65d173a40  libijs-0.35_0.35-15.1build1_amd64.deb' \
       '285f8a505dfa8e1b33f357a9d8d3477ad35bf18c0b34771a6df4c25923f3ae0d  libgmp10_2%3a6.3.0+dfsg-2ubuntu6.1_amd64.deb' \
+      '28bfabbf64a68813a56360bca056072af9ff71ef4090a4b8a8a085afcda3e4dd  binutils-mingw-w64-x86-64_2.41.90.20240122-1ubuntu1+11.4_amd64.deb' \
       '2ca48bf0c2d6465bc39322899715a85d934b4d7442dd5586a7bebbe3ce0f806b  cpp-13-x86-64-linux-gnu_13.3.0-6ubuntu2~24.04.1_amd64.deb' \
+      '2e4317d5ae1a45e517771ea0b8d93519b5f915ab08983facecd480d64dbd1489  libxt6t64_1%3a1.2.1-1.2build1_amd64.deb' \
       '2edff420ef80b4a3f3751e65c33423ef30e563122a58b759e4854ea8d84ba1b1  libcrypt-dev_1%3a4.4.36-4build1_amd64.deb' \
+      '2f801582b5f0e7cb0c2d3d3651193e69f4540ee3b7dcb6079a3562f0880b9edf  libuuid1_2.39.3-9ubuntu6.5_amd64.deb' \
       '2f8a90953ba5c5671249fb3e414582ede4a7111872eaaa08119a560a29c65a1f  libnghttp2-14_1.59.0-1ubuntu0.2_amd64.deb' \
       '30ea715845a1863abd55d11e47ab91513130bf347852d4cdeae69e9d98fa795c  m4_1.4.19-4build1_amd64.deb' \
+      '319331270d5cc52d5ebffe51c941d7b01b432bc402c2924b557209a64d4ecbad  liblz4-1_1.9.4-1build1.1_amd64.deb' \
+      '34fe47512cb203ff0cfb52f1ca157c3b1d257b105913cf17875d6d72556de50e  gcc-mingw-w64-i686-win32-runtime_13.2.0-6ubuntu1+26.1_amd64.deb' \
+      '35e0a40737112580535948db838260f9845a09a2e529f5fc132f10242495ac53  libavahi-common-data_0.8-13ubuntu6.1_amd64.deb' \
       '38e3e603aeca8cbbaefce34eec6b8190f53939425bf2eb2c8a3956d0a947a630  libc-bin_2.39-0ubuntu8.7_amd64.deb' \
+      '397e541af11db776ed7facf1674ee37b56e7de51348c9f077d7a283912c4b458  ucf_3.0043+nmu1_all.deb' \
+      '397f84347476a3c5786b39f3ff6f0f82866eb3d8be6d2ad3efeadf019efe5b80  libx11-6_2%3a1.8.7-1build1_amd64.deb' \
       '3a818142e591e7212c5c7e58af40fb6f8658fbf47531057d2d0265400d8300a1  libcurl4-openssl-dev_8.5.0-2ubuntu10.8_amd64.deb' \
+      '3bac5ff1cba3b001aee1652e3af45d200c415b68e9b27932cb51fe9c464feb40  xfonts-encodings_1%3a1.0.5-0ubuntu2_all.deb' \
       '3e2806e94aba780cac11961ede06bffd14d4b840c4085be33d597ec93773fba5  gettext-base_0.21-14ubuntu2_amd64.deb' \
+      '410c29ff82c6916d14e235b511287e67a45cb78d509b19aab48608acdc941254  sensible-utils_0.0.22_all.deb' \
       '42853d892435cf2ed08dfda92ba77b13bca85f31689256096415921d00cd59c8  autopoint_0.21-14ubuntu2_all.deb' \
       '454456436ca767817a860557263d7cc2489f0a410f03efff4c0bb236d579ec09  libcc1-0_14.2.0-4ubuntu2~24.04.1_amd64.deb' \
       '46bfd10df095a23b65f58115de47a547c9a2d14627749bd0423ae78c14be77d3  libidn2-0_2.3.7-2build1.1_amd64.deb' \
+      '46e75490faa7fd6fddbc8df234d14e0f7b60ea5e98563227a24d6bf5e5008647  fonts-urw-base35_20200910-8_all.deb' \
+      '4807902a3550bd440fef49613ba42096871910f9ecad00e931c6f90adcf78316  libgs-common_10.02.1~dfsg1-0ubuntu7.8_all.deb' \
       '498944010019fe64899ade85735281c8ef45d98b210e66ba1ce12478834a8e09  libpod-parser-perl_1.67-1_all.deb' \
+      '4a42fd30fbc3838c58c929d8a4882682fc12408bb7a0e6cafa913c0f0a57c187  mingw-w64-common_11.0.1-3build1_all.deb' \
       '4c31cc76391ca47dbb4585edc740728f43fe7b6b090f5b3947fc8072db698aca  liblzma5_5.6.1+really5.4.5-1ubuntu0.2_amd64.deb' \
+      '4d6ed682972bddf62af158a06d68a0dda497e421423b7ca92fb450b3d9ceaac9  libjpeg8_8c-2ubuntu11_amd64.deb' \
       '4e040926e50fb961fae9bf95660189d468336a4a17bc321872c434fc8f777e7f  libisl23_0.26-3build1.1_amd64.deb' \
-      '5131ce3d7cdb7193bcef1b402741a0e0f436e25a50e65443fffcc7064e2cd780  libsqlite3-dev_3.45.1-1ubuntu2.5_amd64.deb' \
+      '4e1763494e5b9d34192313aa88e38201fc67b3f13ea96ca268d26401a3002791  libsharpyuv0_1.3.2-0.4build3_amd64.deb' \
+      '5236ef254532c1f4ebddbce898e884fe9cc1ac4803092211ec615cbdeba7aafb  binutils-mingw-w64-i686_2.41.90.20240122-1ubuntu1+11.4_amd64.deb' \
       '526790098bf711ca4fa21cfdf334acdb9cd8e59d3b5732174ceca8ebc8eba98b  perl-base_5.38.2-3.2ubuntu0.2_amd64.deb' \
       '5338a17b0c7da20280097d5730ab640c8fcc2b4547acdda29361b27675b937c6  gettext_0.21-14ubuntu2_amd64.deb' \
       '53e1e1753729d04cf65b05e6e58abe06e2bb76cc07eff0e1b2a638a638ca209b  libtinfo6_6.4+20240113-1ubuntu2_amd64.deb' \
+      '564cdf59dda5e1a826c51b5868ee2785fffa26ee5a7bad95bc5e8c8224c931b8  libtiff6_4.5.1+git230720-4ubuntu2.5_amd64.deb' \
       '5701f931ed2cd30644700b0fc1cda7c2214f93a63ef84c0c80e43ce40d2cf1d2  git-man_1%3a2.43.0-1ubuntu7.3_all.deb' \
       '59e1112a23cb6b1db98dd5a37a67aa11b0f75b2c21c9054bb6af5e2e0fd484fc  libgnutls30t64_3.8.3-1.1ubuntu3.5_amd64.deb' \
       '5ae9a98e73545002cd891f028859941af2a3c760cb6190e635c7ef36953912de  automake_1%3a1.16.5-1.3ubuntu1_all.deb' \
+      '5b42417a77eff041189ad4a599387cd5287d1cba88482f2a3beb3328aea0ba25  libcups2t64_2.4.7-1.2ubuntu7.9_amd64.deb' \
       '5c3eb1fc954af26da4190204098af489eb558552a89cf5cf099e0ea6aab157c5  libk5crypto3_1.20.1-6ubuntu2.6_amd64.deb' \
+      '5d630480f04b4b442300ce847a3fa705ea4d14d80ba6de91f99b51a4e4953b08  libdbus-1-3_1.14.10-4ubuntu4.1_amd64.deb' \
       '5f096011d704c2f2981a8e6d469804d84c486f03183d627b88ba9a98e8d1cfb1  libsyntax-keyword-try-perl_0.29-1build3_amd64.deb' \
       '612b98f4fcfc6ebc57a1b21c2695174694db5a0b7ff760b5d41032076c792398  libicu-dev_74.2-1ubuntu3.1_amd64.deb' \
       '637e6a7744de08cd331a41f4efd0d24e6ea9064843dea9d1c6ca87bdb5f038a2  libffi8_3.4.6-1build1_amd64.deb' \
+      '63d0cc29eda7adc7d9269273e9b5542b8b6aacabc5e7caaa859995269bfe3cff  libpaper1_1.1.29build1_amd64.deb' \
       '6abaa6c26f46ef17764c4a753e0e84de1cdadde5634fd2987621fdc617988d19  libselinux1_3.5-2ubuntu2.1_amd64.deb' \
       '6c4e125792e09d55670a132f1c38b740068b3c7b6b0c6a74abe6c3da981f3a61  perl_5.38.2-3.2ubuntu0.2_amd64.deb' \
       '6d97fbc1972633083f08f51ccab433606c97bbceb897c631c66495117ca3406f  libnettle8t64_3.9.1-2.2build1.1_amd64.deb' \
+      '7009959b8a3b77206325026917fb45150ac81bf6139468abc0841d5a29c8619d  libffi-dev_3.4.6-1build1_amd64.deb' \
       '7074b6a2f6367a10d280c00a1cb02e74277709180bab4f2491a2f355ab2d6c20  zlib1g_1%3a1.3.dfsg-3.1ubuntu2.1_amd64.deb' \
       '71a30882e150a73905baa895ed0b0acaea0e3739346cbfa3934bcc3ad3172628  libperl5.38t64_5.38.2-3.2ubuntu0.2_amd64.deb' \
       '72093fb456864db55f1352bfa5e952a94f7abaff64e71dff1fbf001db1984564  libsframe1_2.42-4ubuntu2.10_amd64.deb' \
@@ -244,28 +335,40 @@ RUN set -eux \
       '7438ff160b020a74970672189ecae25d0ca650de6d7f543f12a3134192cffbd9  gcc-13_13.3.0-6ubuntu2~24.04.1_amd64.deb' \
       '74492419b8fda803774b8c9acef6afc5d2f9ff31782635aae212906adae7b277  libbrotli1_1.1.0-2build2_amd64.deb' \
       '74ab8be7aa487e5cc7d9d228212f538ff96658afcb080335c02fe0f3e384ff7c  libxml2_2.9.14+dfsg-1.3ubuntu3.7_amd64.deb' \
+      '786890d78f5115e3f4a7b95f8beabfdfcd77c940fba6fb6a7c7de41b98b5ca9b  libopenjp2-7_2.5.0-2ubuntu0.4_amd64.deb' \
       '7a812f05ee1610154b433e2ad54f6e4163fcbb306b9fb31afe959afb2e5e1545  pkgconf-bin_1.8.1-2build1_amd64.deb' \
       '7ab24d3057dabf86db8f771ad6e43f073ed86b6b950d6e8ba22cb9fe6707bbc9  libcom-err2_1.47.0-2.4~exp1ubuntu4.1_amd64.deb' \
+      '7ac09bc7f283f1148c8e1697373db069c1d4364a9f5fa58bb66c8a93760b8b65  gcc-mingw-w64-x86-64-win32-runtime_13.2.0-6ubuntu1+26.1_amd64.deb' \
       '7eb710fe148d224c159ddec1ceb0ba53ead52a80a6793dcdae1474acf20d8f71  rpcsvc-proto_1.4.2-0ubuntu7_amd64.deb' \
       '7ec86d697c3668503c85f308a6832f092075b5880ad002f22185264da0bd4645  libctf0_2.42-4ubuntu2.10_amd64.deb' \
       '7f3f8e565401256f21d5aa562c9f92dbb63537b73aaea6283e4db5264f1598f4  libldap2_2.6.10+dfsg-0ubuntu0.24.04.1_amd64.deb' \
+      '80e1430303e1a619fc9cfc66225893d81486e52801e1916b712d8111d100ae38  gcc-mingw-w64-x86-64-win32_13.2.0-6ubuntu1+26.1_amd64.deb' \
       '8321aac6230fa1da320e76eb6288b7436164624aec449ed3933ea6c4cc86daac  libasan8_14.2.0-4ubuntu2~24.04.1_amd64.deb' \
       '83291a1d9b26262ac8f44a3bb188ce2cb796a0543134aae00e19db066c84dfdd  libc-dev-bin_2.39-0ubuntu8.7_amd64.deb' \
       '834a58031069d97d7cfb8b2f5bfd5effc69cecf7f30cc362071875f1f8dc1828  pkgconf_1.8.1-2build1_amd64.deb' \
       '85059b30960de3582e8612740614da3dfe47241d0368a28dea686188cf7648dd  cpp-x86-64-linux-gnu_4%3a13.2.0-7ubuntu1_amd64.deb' \
+      '869bdcfb8020d2b07b4b497bbdb8775e73fb81695cd7b70f97cc5b691c1e87c3  gcc-mingw-w64-i686-win32_13.2.0-6ubuntu1+26.1_amd64.deb' \
       '8cbcc9b3ae5ef23b449383d47a9035b27596e307d7dce7df9b83d47a7acd1d91  libtsan2_14.2.0-4ubuntu2~24.04.1_amd64.deb' \
+      '8da5fccbc50005d50dd69ef558ae72673435026e1d3134d0c1cc836d22953c44  xfonts-utils_1%3a7.7+6build3_amd64.deb' \
+      '8e7dfa9e63a9b5058071b84da48bb2e30dea07de169e80fbc759fe0e68639269  libdeflate0_1.19-1build1.1_amd64.deb' \
       '901956d9e189bf367db3c309795d11ebe2d84b4a9660f7e7ce0c2fa5173b24f9  dpkg_1.22.6ubuntu6.5_amd64.deb' \
+      '903e09f47c0e441f9476a32efc745430a0cc39b1c33a13ea1f1d0414a24b7970  mingw-w64-i686-dev_11.0.1-3build1_all.deb' \
       '925187570891a3b0af6a1423bdc91492a33c231fa39974ed91efb3ae4ce530fc  xz-utils_5.6.1+really5.4.5-1ubuntu0.2_amd64.deb' \
+      '93654ee8180a73a0363f25c51dc673d67cbabcbecd164187b8a2deb54d007aef  libgpg-error0_1.47-3build2.1_amd64.deb' \
       '9474785cd6f398512bf8c305c3901dbb111569dccb6f5832002373c0a8ac5832  libcrypt1_1%3a4.4.36-4build1_amd64.deb' \
       '94daf9ede91f6263d676611623d4c9edab695c728a584ab2fb1d11cabb8479e8  base-files_13ubuntu10.4_amd64.deb' \
       '955644e8bc2930a9bf8eea5e4c2237c8a118c1e2ac2845b993b6f7f35eefd293  libc6_2.39-0ubuntu8.7_amd64.deb' \
       '96490acdee09245bb47ff4684dc59a7ac3b29619da868ef3e9d8323c61a02ac4  findutils_4.9.0-5build1_amd64.deb' \
       '967a39dbc14236d1580ede01d80fd78444668572e716734e1ac66c175052594e  librtmp1_2.4+20151223.gitfa8646d.1-2build7_amd64.deb' \
+      '9816074e7a61fbb9867c8c78d42d1987950169e2cdbbbdb63ed3988a4d847a18  libidn12_1.42-1build1_amd64.deb' \
+      '9ae01f7747e7f479394c697c55acf11d3baf139e8e54b7c4adfb55ef9c50de08  libx11-data_2%3a1.8.7-1build1_all.deb' \
       '9d1d707179675d38e024bb13613b1d99e0d33fa6c45e5f3bcba19340781781d3  libtool_2.4.7-7build1_all.deb' \
-      '9e4569a5b992e70899527023ec1871b5abe92afb41c9eb53b38c2ccae056f6db  libsqlite3-0_3.45.1-1ubuntu2.5_amd64.deb' \
+      '9df0579cd298a1f2b7a40efd519c849745aecd193a09733cf4d1032284a62bbf  fontconfig-config_2.15.0-1.1ubuntu2_amd64.deb' \
       'a09b856849cf36190f8cd39da33486b14bcaf81b592530b2f3236da17daaad2f  sed_4.9-2build1_amd64.deb' \
       'a134b0319a82d14581b3a14820d2832af4ec9778ed8b9b4ddaeecfb0555ec325  gcc-13-x86-64-linux-gnu_13.3.0-6ubuntu2~24.04.1_amd64.deb' \
       'a16dea3abe2dcac99bcfae27e7e5672fde64573c3c170dcb0cd55631238f9814  libubsan1_14.2.0-4ubuntu2~24.04.1_amd64.deb' \
+      'a2bc05cfef021fdb84285036f98eda5ebec3c4b7a378f5aa2bdba5c4d3d8d586  libfontconfig1_2.15.0-1.1ubuntu2_amd64.deb' \
+      'a30c07e807e9874ea93909448c5d6d37f9569ebe60ad32de8e490aad198538a3  gcc-mingw-w64-base_13.2.0-6ubuntu1+26.1_amd64.deb' \
       'a51f8de7829211db961a31f02158058ad1a95f92ac6d0a5dff6350e2821c54c0  libstdc++6_14.2.0-4ubuntu2~24.04.1_amd64.deb' \
       'a6c85d1303ae90b6a3209d73c4f047f82c27cdc963c48adfd95dd7abca64f039  libpsl5t64_0.21.2-1.1build1_amd64.deb' \
       'a78a25c8fad8fdd0b7bc6b297da5d5685579be1e57732aa47870830e4a13161e  libdb5.3t64_5.3.28+dfsg2-7_amd64.deb' \
@@ -273,22 +376,28 @@ RUN set -eux \
       'a9f6ba49005d117cdd40b80985a2c078671bb7922b32376432e1a096e23a4f10  po4a_0.69-1_all.deb' \
       'aa7fadbe33b78bcf99885318040601c550c208929565b179891d9a3cc2aa68cd  libgcc-s1_14.2.0-4ubuntu2~24.04.1_amd64.deb' \
       'ab1e020e8457f2b0b730b412813469477858876e3c30583d2aa98cbba2a61efa  libssl3t64_3.0.13-0ubuntu3.9_amd64.deb' \
+      'ad1edb5303574fee154e487947177e5bd15363aa71b92f78f5a2a7145fdb81c5  libice6_2%3a1.0.10-1build3_amd64.deb' \
       'aebc1c8b69a1f98bb43dfc268daecd181116dbf40b13ee4e822eb4bdd52b493a  libmpfr6_4.2.1-1build1.1_amd64.deb' \
       'b10814b7ada5e8ae3182707bb17a492b17ab453efeb145c7b34fe5250cf0edb3  linux-libc-dev_6.8.0-110.110_amd64.deb' \
       'b112268e2feca483398805e92e29e31b07592ddbc4bb021bd5f8f64f8042ca86  sgml-base_1.31_all.deb' \
       'b3b5a84181a38fd191820b2cdcc1a3eeb1cd6333ad472f2092f96e81047e9c74  binutils_2.42-4ubuntu2.10_amd64.deb' \
       'b51f8094760f7b41afdcb1fe1b5a57fc64b75a090859918af17450a10f8c7d31  cpp_4%3a13.2.0-7ubuntu1_amd64.deb' \
+      'b545fa5196dd7467ba3770d6ce575abcd7941071961ea9f7535a319d9d20fd46  x11-common_1%3a7.7+23ubuntu3_all.deb' \
       'b5f50d7187fdce267bea28a77c24fcf26de55bec5bc116bd1a81ee85c28cd4a5  libyaml-tiny-perl_1.74-1_all.deb' \
       'b95c172411a7fdae70307cf33a9f5320ba5e056b556454543dd5b679d5ce1c4f  gcc-14-base_14.2.0-4ubuntu2~24.04.1_amd64.deb' \
+      'bb390da466a7461bfc87aa3e6b7cd145dae84af3e26bf437f2c0c218ba226294  debconf_1.5.86ubuntu1_all.deb' \
       'bbf5a155039042634961a61276650631ee47b9e721f91f8dbb731b0bbe046df3  libc6-dev_2.39-0ubuntu8.7_amd64.deb' \
+      'bcd336fce11ce2a45f34d0f95e6980af22529f22147e8f98c156e5cee8ee42bb  libxdmcp6_1%3a1.1.3-0ubuntu6_amd64.deb' \
       'c0ab7426300c645ac84d195134143866bd0d6bd33831df3d63d5ab29994984ca  libsmartcols1_2.39.3-9ubuntu6.5_amd64.deb' \
       'c17e0be76f77a8c15b3217cf9cb58ca63f6cc1974044d2fa4abb33ed7ed7ce1e  perl-modules-5.38_5.38.2-3.2ubuntu0.2_all.deb' \
       'c7535331fbb183c802c3bf4b6b210872dcc12d0421b3212b3c4b940f2c59ed3a  cpp-13_13.3.0-6ubuntu2~24.04.1_amd64.deb' \
       'c8385f3b50481a73fb4cec41932a2ac5047e0ec58cd16398546938f62ce31565  libosp5_1.5.2-15ubuntu2_amd64.deb' \
+      'c86f6439f0bbc531f7199794654231f3b29327d6585958511b958795d51c2484  libwebp7_1.3.2-0.4build3_amd64.deb' \
       'c8dcd54390e09aba855ec0565d22396dabe52896c47856cf040b9e1ad37d9ff9  libssh-4_0.10.6-2ubuntu0.4_amd64.deb' \
       'c9a70989678660eed9a1e904c74fa043da8bec8e2036856fc16e31ced79b04f8  libicu74_74.2-1ubuntu3.1_amd64.deb' \
       'c9b3109d868c1e5a26f0bd10e005171420d83f6da84a527aa6293bc350892504  hostname_3.23+nmu2ubuntu2_amd64.deb' \
       'cc3f9f7a1e576173fb59c36652c0a67c6426feae752b352404ba92dfcb1b26c9  autoconf_2.71-3_all.deb' \
+      'cc87515de25fedba5a13471d1b4d691b0754342c224f1525fa741bfa4fb19f66  libgs10_10.02.1~dfsg1-0ubuntu7.8_amd64.deb' \
       'cd689db2691edaa10f37329307292796bb599e722e0505c79e14caaa1fe9a93a  libgcc-13-dev_13.3.0-6ubuntu2~24.04.1_amd64.deb' \
       'cd8b4030be6cff775cc3945bb35be23a3b098740cd58480b77c36d1fe1e0334f  libcurl4t64_8.5.0-2ubuntu10.8_amd64.deb' \
       'cebe6098bb3d66fdacac9dc6fe406a651216d9c00f27c3f9c159d15d96cdf864  libmpc3_1.3.1-1build1.1_amd64.deb' \
@@ -296,6 +405,7 @@ RUN set -eux \
       'd136073f5e2153f3df11c1d08d66727b9466b28ff483f50085f14bbe3464b5ee  binutils-common_2.42-4ubuntu2.10_amd64.deb' \
       'd1cddfc78c29fd0736b19f569616376167d36e07ee5ddbad63942d5b88a1e22b  libsgmls-perl_1.03ii-38_all.deb' \
       'd3ea567e3c25ebcd272e541ad49c447bc1d7f3720b8081132177ddb3ca9b1f96  gzip_1.12-1ubuntu3.1_amd64.deb' \
+      'd54d80db382e2308ab5165f3f170531568d0baa9708ba427e04602c1f476f3e8  libgs10-common_10.02.1~dfsg1-0ubuntu7.8_all.deb' \
       'd557ab12b42ab370249142099fae3cbb979948934e4dfa58c2ab59bf5bbbda73  libbz2-1.0_1.0.8-5.1build0.1_amd64.deb' \
       'd623abbb182acfead9d6352252e687674b6e5b3b79d42aa1324b08a3a6e1131b  coreutils_9.4-3ubuntu6.2_amd64.deb' \
       'd880fdb65dec669fcc4c5b34c5cbfee6c014ec4bdf6430ecdc7f10efffb28b2e  libattr1_1%3a2.5.2-1build1.1_amd64.deb' \
@@ -304,8 +414,11 @@ RUN set -eux \
       'dc0c2a1a053e833ba4d71e1ec2ba4244fe301761ad4a91d6725f927a52d86a14  liblsan0_14.2.0-4ubuntu2~24.04.1_amd64.deb' \
       'dc7f7f4dad4b48f6012ea65de3198d8376604afef39f06d65ec6167740e203c9  mawk_1.3.4.20240123-1build1_amd64.deb' \
       'dc8f0ca542e09d662f29370c8393c016440dd4bc5c996c5fcc19f632b63ce3b0  libquadmath0_14.2.0-4ubuntu2~24.04.1_amd64.deb' \
+      'debe954f284e1712c407de92023b0cff45d239557344fb8acc65505b1d841240  libavahi-client3_0.8-13ubuntu6.1_amd64.deb' \
       'dfcf25061e07aad7efd3f4f880ba5ad4d4d09ebe7fc8cc77ab6b8a161d6d4727  libzstd1_1.5.5+dfsg2-2build1.1_amd64.deb' \
+      'e1c6611d11ad7398326f1bf028afc34c3b14c51d917a3426b966ed4b9687fa58  libxcb1_1.15-1ubuntu2_amd64.deb' \
       'e2c390d8c1843059922f7ff3a74106c5af6fbf03c94532c07de16bf5af256fb4  libuchardet0_0.0.8-1build1_amd64.deb' \
+      'e40d29f1d1a62393bacaedebe0da3d9006084152a9f7e5e029293f08ce1c5c80  libxau6_1%3a1.0.9-1build6_amd64.deb' \
       'e5ba01d3c41f256aaf57ec59aa0554857162e3e7f97cdfbff1ed2c0e8d720ee7  libmd0_1.1.0-2build1.1_amd64.deb' \
       'e649ebef274cce86e6133144ce5f587db101f06828dbd88cb73350fe98160b0e  libkrb5support0_1.20.1-6ubuntu2.6_amd64.deb' \
       'e859aca26585bb91113a451f1e66bc0e5283cb08797d679aacc1d936ae6dff8e  gcc-13-base_13.3.0-6ubuntu2~24.04.1_amd64.deb' \
@@ -315,8 +428,12 @@ RUN set -eux \
       'eda097f98dcb3a08b9ce157d6191d140e4885c1cba47b683c94b8ca45e88f458  libsasl2-2_2.1.28+dfsg1-5ubuntu3.1_amd64.deb' \
       'ee5633e863e19c3381ed97842ce35ed32ede96a3d1ae4e94c051d3036fe21347  libstdc++-13-dev_13.3.0-6ubuntu2~24.04.1_amd64.deb' \
       'f0ed0e314a63ae1b7e5403d7e43a26c6e0c0ee69e9a305babcf9c6775607377a  libmagic-mgc_1%3a5.45-3build1_amd64.deb' \
+      'f1b9dbfa28c56564f6b544f3757f5f3f4d549ce9962f39e897812c23b0a5d0e7  liblerc4_4.0.0+ds-4ubuntu2_amd64.deb' \
       'f2bfd3f8f00413d5f1f04fc723063803c56ac0f1e0efae3bc41f2d7276972ec3  libacl1_2.3.2-1build1.1_amd64.deb' \
       'f3857b0863ac5cfd4263e9bf6cfb1d4be88d5321e4070d5bc2b62b0949e6c86f  libbsd0_0.12.1-1build1.1_amd64.deb' \
+      'f68b5b23bc8a1688fb787d2aed7e2cdf895a73022f6a5025e183162dac4500b2  libjpeg-turbo8_2.1.5-2ubuntu2_amd64.deb' \
+      'f6937fd8a77e83001dcfd3857d5a5cfbd4caaeb297c7fdb71ec50514843e48af  libfreetype6_2.13.2+dfsg-1ubuntu0.1_amd64.deb' \
+      'f6e3a80bf7423d42adafd0de5293137cbed926b7a93a688c348e50a7d43d77aa  libavahi-common3_0.8-13ubuntu6.1_amd64.deb' \
       'f82c9ad142f952ea523bda5bfca7bb0802af3a50b8c0f0dd9ec18cdfa104bde7  libtasn1-6_4.19.0-3ubuntu0.24.04.2_amd64.deb' \
       'f91f24336cb9cc9ea97475bc57c1ba7502ca4bf2efb235762abfaeacb44702a3  libcurl3t64-gnutls_8.5.0-2ubuntu10.8_amd64.deb' \
       'f9b8ff6528114ba4c6a9ec94570c838a266f9f196969ae08f310725fa830d958  diffutils_1%3a3.10-1build1_amd64.deb' \
@@ -325,6 +442,7 @@ RUN set -eux \
       'fc2319f342c437e044ccf854e0c95bd472a7eb0b9363e1f76ad1524ab04df68e  libmagic1t64_1%3a5.45-3build1_amd64.deb' \
       'fc3a57e8f931ec06cb7c51acc56878f1fec247ff02a7adcab26905c2faeb2792  libpkgconf3_1.8.1-2build1_amd64.deb' \
       'fe49cbbc7be753528380c724a8eef5f1e31dffa9221f692c5069048d81c7449d  libatomic1_14.2.0-4ubuntu2~24.04.1_amd64.deb' \
+      'ff32bae487706ba6ca646b5b72d89b935e3b8b2811d02e4ad7360cb97d90e2d0  libgcrypt20_1.10.3-2build1_amd64.deb' \
     > SHA256SUMS \
  && sha256sum -c SHA256SUMS \
  && dpkg -i *.deb \
